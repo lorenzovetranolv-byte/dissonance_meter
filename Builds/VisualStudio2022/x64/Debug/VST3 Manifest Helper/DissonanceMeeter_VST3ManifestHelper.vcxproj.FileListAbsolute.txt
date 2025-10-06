@@ -1,0 +1,2 @@
+C:\Users\Lorenzo\Desktop\Lorenzo\UNIVERSITA'\STAGE\MISURAZIONE DISSONANZA\DissonanceMeeter\Builds\VisualStudio2022\x64\Debug\VST3 Manifest Helper\juce_vst3_helper.exe
+C:\Users\Lorenzo\Desktop\Lorenzo\UNIVERSITA'\STAGE\MISURAZIONE DISSONANZA\DissonanceMeeter - Copia\Builds\VisualStudio2022\x64\Debug\VST3 Manifest Helper\juce_vst3_helper.exe

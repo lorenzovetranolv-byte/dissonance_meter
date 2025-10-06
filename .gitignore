@@ -1,0 +1,138 @@
+# =============================
+# JUCE / C++ Plugin Project .gitignore
+# =============================
+
+# OS -------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.stackdump
+
+# General archives / packages -----------------------
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.rar
+
+# Build systems / IDEs ------------------------------
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Visual Studio intermediate / database
+*.VC.db
+*.VC.opendb
+ipch/
+*.opendb
+*.idb
+*.pdb
+*.ilk
+
+# CMake / Ninja (if used)
+CMakeFiles/
+CMakeCache.txt
+cmake-build-*/
+Makefile
+ninja.build
+.build/
+
+# JUCE Generated code (keep if you edit manually) ----
+# JuceLibraryCode is auto-generated from the .jucer file
+JuceLibraryCode/
+
+# If Projucer auto-exporters regenerate these, you can ignore exporter folders
+# Uncomment if you want to ignore ALL exporter build folders (adjust as needed)
+# Builds/
+
+# However normally you KEEP the exporter projects (.vcxproj, .xcodeproj) in VCS
+# Comment out the next line if you DO want to version project files
+*.VC.db
+
+# Compiled objects / libs / binaries -----------------
+*.obj
+*.o
+*.lo
+*.la
+*.a
+*.lib
+*.so
+*.dll
+*.dylib
+*.vst3
+*.component
+*.vst
+*.aaxplugin
+*.exe
+*.app
+*.pdb
+*.mod
+*.sbr
+*.dmp
+
+# Static analysis / profiler outputs ----------------
+*.oprof
+*.gcda
+*.gcno
+*.gcov
+*.prof
+*.trace
+
+# Logs / caches -------------------------------------
+*.log
+*.tlog
+*.cache
+*.swp
+*.tmp
+*.temp
+*~
+
+# Crash / memory dumps ------------------------------
+*.dmp
+*.mdmp
+
+# CLion / JetBrains ---------------------------------
+.idea/
+
+# Other tool artefacts ------------------------------
+DerivedData/
+launch.json
+
+# Node / Web (if any UI tooling) --------------------
+node_modules/
+*.tsbuildinfo
+
+# Python helper scripts ------------------------------
+__pycache__/
+*.py[cod]
+
+# Keep the main project definition ------------------
+# DO NOT ignore the .jucer file (acts as project source)
+# *.jucer
+
+# Local environment / secrets -----------------------
+.env
+.secret
+
+# Audio / test artefacts (optional) -----------------
+*.wav
+*.aiff
+*.aif
+*.flac
+*.mp3
+*.ogg
+# (Comment these out if you store reference audio in repo)
+
+# Misc ------------------------------------------------
+# Lock / state files
+*.lock
+
+# End of file
