@@ -149,7 +149,7 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="D:\Progetto tesi\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client_VST2.cpp">
+    <ClCompile Include="..\..\..\..\Progetto tesi\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client_VST2.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="..\..\JuceLibraryCode\include_juce_audio_plugin_client_VST2.cpp"/>
