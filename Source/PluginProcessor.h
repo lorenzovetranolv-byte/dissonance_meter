@@ -9,37 +9,7 @@
 
 #include <JuceHeader.h>
 #include <vector>
-
-//==============================================================================
-// Base class for simple internal effect processors used inside the graph
-class ProcessorBase : public juce::AudioProcessor
-{
-public:
-  ProcessorBase() : juce::AudioProcessor (BusesProperties()
-                    .withInput ("Input",  juce::AudioChannelSet::stereo())
-                    .withOutput("Output", juce::AudioChannelSet::stereo())) {}
-
-  void prepareToPlay (double, int) override {}
-  void releaseResources() override {}
-  void processBlock (juce::AudioSampleBuffer&, juce::MidiBuffer&) override {}
-  juce::AudioProcessorEditor* createEditor() override { return nullptr; }
-  bool hasEditor() const override { return false; }
-
-  const juce::String getName() const override { return {}; }
-  bool acceptsMidi() const override { return false; }
-  bool producesMidi() const override { return false; }
-  double getTailLengthSeconds() const override { return 0.0; }
-  int getNumPrograms() override { return 1; }
-  int getCurrentProgram() override { return 0; }
-  void setCurrentProgram (int) override {}
-  const juce::String getProgramName (int) override { return {}; }
-  void changeProgramName (int, const juce::String&) override {}
-  void getStateInformation (juce::MemoryBlock&) override {}
-  void setStateInformation (const void*, int) override {}
-
-private:
-  JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ProcessorBase)
-};
+#include "ProcessorBase.h" // use single shared ProcessorBase definition
 
 //==============================================================================
 // BandPass Filter node with smoothed frequency & Q parameters
@@ -98,12 +68,7 @@ private:
 };
 
 //==============================================================================
-// Distortion node implementing ODE-based nonlinear system:
-// f(t) = x'' + 60 x' + 900 x + A x^2  ->  x'' = f(t) - 60 x' - 900 x - A x^2
-// Integration (forward Euler):
-// x'(t) = x'(t-1) + x''(t-1) * dt
-// x(t)  = x(t-1)  + x'(t-1) * dt
-// Output: x(t)
+// Distortion node implementing ODE-based nonlinear system
 class Distortion : public ProcessorBase
 {
 public:
@@ -129,7 +94,6 @@ public:
     const int numSamples  = buffer.getNumSamples();
     const float dt = currentSampleRate > 0.0f ? (1.0f / currentSampleRate) : 0.0f;
 
-    // Ensure state size if channel count changed dynamically
     if ((int)xState.size() < numChannels)
     {
       xState.resize (numChannels, 0.0f);
@@ -148,28 +112,18 @@ public:
 
       for (int i = 0; i < numSamples; ++i)
       {
-        float in  = data[i];              // f(t) driving term from input audio
+        float in  = data[i];
         float A    = drive.getNextValue();
-
-        // Compute current second derivative from previous state (explicit Euler)
         float ddx = in - 60.0f * dx - 900.0f * x - A * (x * x);
-
-        // Integrate using previous derivatives
         float dxNew = dx + ddx * dt;
         float xNew  = x  + dx * dt;
-
-        // Optional simple limiting to avoid runaway (safety)
         xNew  = juce::jlimit (-5.0f, 5.0f, xNew);
         dxNew = juce::jlimit (-500.0f, 500.0f, dxNew);
-
-        // Write output sample
         data[i] = xNew;
-
-        // Update state for next sample
         x = xNew;
         dx = dxNew;
-        dxPrev = dxNew;        // (Kept if future higher-order methods added)
-        ddxPrev = ddx;         // store last acceleration
+        dxPrev = dxNew;
+        ddxPrev = ddx;
       }
     }
   }
@@ -199,8 +153,8 @@ private:
   float currentSampleRate = 44100.0f;
   std::vector<float> xState;       // x(t)
   std::vector<float> xPrimeState;  // x'(t)
-  std::vector<float> xPrimePrev;   // stored previous derivative (placeholder for future schemes)
-  std::vector<float> xDoublePrev;  // stored previous second derivative (if needed)
+  std::vector<float> xPrimePrev;   // previous derivative
+  std::vector<float> xDoublePrev;  // previous second derivative
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Distortion)
 };

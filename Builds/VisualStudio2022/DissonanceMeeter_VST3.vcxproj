@@ -173,16 +173,16 @@ if not exist &quot;$(OutDir)/DissonanceMeeter.vst3\Contents\Resources\&quot; del
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="D:\Progetto tesi\JUCE\modules\juce_audio_plugin_client\VST3\juce_VST3ManifestHelper.cpp">
+    <ClCompile Include="..\..\..\..\Progetto tesi\JUCE\modules\juce_audio_plugin_client\VST3\juce_VST3ManifestHelper.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="D:\Progetto tesi\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client_VST3.cpp">
+    <ClCompile Include="..\..\..\..\Progetto tesi\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client_VST3.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="..\..\JuceLibraryCode\include_juce_audio_plugin_client_VST3.cpp"/>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="D:\Progetto tesi\JUCE\modules\juce_audio_plugin_client\VST3\juce_VST3ModuleInfo.h"/>
+    <ClInclude Include="..\..\..\..\Progetto tesi\JUCE\modules\juce_audio_plugin_client\VST3\juce_VST3ModuleInfo.h"/>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include=".\resources.rc"/>
