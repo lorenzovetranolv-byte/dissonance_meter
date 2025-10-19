@@ -32,6 +32,15 @@ private:
     Slider minFrequency;
     Slider maxFrequency;
     Slider AValue;
+    Slider oscFreq1Slider;
+    Slider oscFreq2Slider;
+    TextButton oscFreq1Minus {"-"};
+    TextButton oscFreq1Plus  {"+"};
+    TextButton oscFreq2Minus {"-"};
+    TextButton oscFreq2Plus  {"+"};
+    Slider masterGainSlider;
+    juce::Label masterGainLabel;
+    ComboBox modeSelector;
     DissonanceMeeter& audioProcessor;
     BandPassFilter& bandPassProcessor;
     Distortion& distortionProcessor;
@@ -40,6 +49,7 @@ public:
   std::unique_ptr<AudioProcessorValueTreeState::SliderAttachment> sliderAttachment1;
   std::unique_ptr<AudioProcessorValueTreeState::SliderAttachment> sliderAttachment2;
   std::unique_ptr<AudioProcessorValueTreeState::SliderAttachment> sliderAttachment3;
+  std::unique_ptr<AudioProcessorValueTreeState::SliderAttachment> masterGainAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DissonanceMeeterAudioProcessorEditor)
 };

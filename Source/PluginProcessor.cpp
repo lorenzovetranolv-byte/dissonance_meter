@@ -8,6 +8,8 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include <cmath>
+#include <cstring>
 
 //==============================================================================
 DissonanceMeeter::DissonanceMeeter()
@@ -60,6 +62,14 @@ void DissonanceMeeter::prepareToPlay (double sampleRate, int samplesPerBlock)
   mainProcessor->prepareToPlay (sampleRate, samplesPerBlock);
 
   initialiseGraph();
+  initialiseOscillator (sampleRate);
+}
+
+void DissonanceMeeter::initialiseOscillator (double sampleRate) noexcept
+{
+  (void) sampleRate; // suppress unused parameter warning
+  oscPhase1 = 0.0;
+  oscPhase2 = 0.0;
 }
 
 void DissonanceMeeter::initialiseGraph()
@@ -121,10 +131,63 @@ void DissonanceMeeter::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
   for (int ch = getTotalNumInputChannels(); ch < getTotalNumOutputChannels(); ++ch)
     buffer.clear (ch, 0, buffer.getNumSamples());
 
-  if (mainProcessor != nullptr)
-    mainProcessor->processBlock (buffer, midi);
+  // If in ExternalInput mode, pass through main graph; otherwise generate internal oscillator signal
+  if (getInputMode() == InputMode::ExternalInput)
+  {
+    if (mainProcessor != nullptr)
+      mainProcessor->processBlock (buffer, midi);
+  }
+  else
+  {
+    // Oscillator mode: generate two-sine blend and write to all output channels
+    const int numSamples = buffer.getNumSamples();
+    const int numCh = buffer.getNumChannels();
+    const double sr = lastSampleRate > 0.0 ? lastSampleRate : 44100.0;
+    const float f1 = oscFreq1.load();
+    const float f2 = oscFreq2.load();
+    for (int ch = 0; ch < numCh; ++ch)
+    {
+      float* data = buffer.getWritePointer (ch);
+      for (int i = 0; i < numSamples; ++i)
+      {
+        const float s1 = static_cast<float> (std::sin (oscPhase1));
+        const float s2 = static_cast<float> (std::sin (oscPhase2));
+        data[i] = 0.5f * s1 + 0.5f * s2;
+        oscPhase1 += juce::MathConstants<double>::twoPi * (f1 / sr);
+        oscPhase2 += juce::MathConstants<double>::twoPi * (f2 / sr);
+        if (oscPhase1 > juce::MathConstants<double>::twoPi) oscPhase1 -= juce::MathConstants<double>::twoPi;
+        if (oscPhase2 > juce::MathConstants<double>::twoPi) oscPhase2 -= juce::MathConstants<double>::twoPi;
+      }
+    }
+  }
+
+  // If selected to use a single external channel, copy that channel to outputs
+  if (getInputMode() == InputMode::ExternalInput && getSelectedInputChannel() >= 0)
+  {
+    const int sel = getSelectedInputChannel();
+    if (sel < buffer.getNumChannels())
+    {
+      // duplicate selected input channel into all outputs
+      const int samples = buffer.getNumSamples();
+      const float* src = buffer.getReadPointer (sel);
+      for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+      {
+        if (ch == sel) continue;
+        float* dst = buffer.getWritePointer (ch);
+        std::memcpy (dst, src, (size_t) samples * sizeof (float));
+      }
+    }
+  }
 
   waveForm.pushBuffer (buffer);
+
+  // Apply master output gain to entire buffer
+  const float gain = juce::jlimit (0.0f, 4.0f, getOutputGain()); // clamp gain 0..4
+  if (gain != 1.0f)
+  {
+    for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+      buffer.applyGain (ch, 0, buffer.getNumSamples(), gain);
+  }
 }
 
 //==============================================================================

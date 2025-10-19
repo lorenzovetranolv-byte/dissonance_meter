@@ -10,6 +10,7 @@
 #include <JuceHeader.h>
 #include <vector>
 #include "ProcessorBase.h" // use single shared ProcessorBase definition
+#include <atomic>
 
 //==============================================================================
 // BandPass Filter node with smoothed frequency & Q parameters
@@ -50,16 +51,19 @@ private:
   juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
   {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
-    params.push_back (std::make_unique<juce::AudioParameterFloat>("FREQUENCY", "Frequency", juce::NormalisableRange<float>(50.0f, 10000.0f, 0.0f, 0.25f), 150.0f));
-    params.push_back (std::make_unique<juce::AudioParameterFloat>("Q",         "Q",         juce::NormalisableRange<float>(0.1f, 10.0f,   0.0f, 0.4f),   2.5f));
+    // Adjusted for Helmholtz third-tone testing: allow low center frequencies down to 16 Hz and
+    // tighter Q range suitable for resonance testing (1..5). Default fc=200Hz, Q=3.0
+    // Band-pass center restricted to 16..200 Hz to allow sweep: 200 -> 60 -> 30 -> 16
+    params.push_back (std::make_unique<juce::AudioParameterFloat>("FREQUENCY", "Frequency", juce::NormalisableRange<float>(16.0f, 200.0f, 0.0f, 0.25f), 200.0f));
+    params.push_back (std::make_unique<juce::AudioParameterFloat>("Q",         "Q",         juce::NormalisableRange<float>(1.0f, 5.0f,    0.0f, 0.4f),   3.0f));
     return { params.begin(), params.end() };
   }
 
   void updateCoefficients()
   {
     *filter.state = *juce::dsp::IIR::Coefficients<float>::makeBandPass (currentSampleRate,
-                      juce::jlimit (50.0f, 10000.0f, frequency.getNextValue()),
-                      juce::jlimit (0.1f,  10.0f,    q.getNextValue()));
+                      juce::jlimit (16.0f, 200.0f, frequency.getNextValue()),
+                      juce::jlimit (1.0f,  5.0f,    q.getNextValue()));
   }
 
   float currentSampleRate = 44100.0f;
@@ -146,7 +150,8 @@ private:
   juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
   {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
-    params.push_back (std::make_unique<juce::AudioParameterFloat>("A", "A", juce::NormalisableRange<float>(1.0f, 15.0f, 0.0f, 0.4f), 1.0f));
+    // Nonlinearity parameter A: narrow range for stability and testing of third-tone (0.2..1.2)
+    params.push_back (std::make_unique<juce::AudioParameterFloat>("A", "A", juce::NormalisableRange<float>(0.2f, 1.2f, 0.0f, 0.4f), 0.6f));
     return { params.begin(), params.end() };
   }
 
@@ -194,6 +199,25 @@ public:
 
   juce::AudioVisualiserComponent waveForm { 1 };
 
+public:
+  enum class InputMode
+  {
+    ExternalInput = 0,
+    Oscillator     = 1
+  };
+
+  void setInputMode (InputMode m) noexcept { inputMode.store ((int) m); }
+  InputMode getInputMode() const noexcept { return static_cast<InputMode> (inputMode.load()); }
+
+  void setSelectedInputChannel (int ch) noexcept { selectedInputChannel.store (ch); }
+  int getSelectedInputChannel() const noexcept { return selectedInputChannel.load(); }
+
+  void setOscillatorFrequencies (float f1, float f2) noexcept { oscFreq1.store (f1); oscFreq2.store (f2); }
+  std::pair<float,float> getOscillatorFrequencies() const noexcept { return { oscFreq1.load(), oscFreq2.load() }; }
+
+  // called from prepareToPlay
+  void initialiseOscillator (double sampleRate) noexcept;
+
 private:
   void initialiseGraph();
   void connectAudioNodes();
@@ -208,6 +232,19 @@ private:
   juce::AudioProcessorGraph::Node::Ptr bandPassNode;
   juce::AudioProcessorGraph::Node::Ptr distortionNode;
   juce::AudioProcessorGraph::Node::Ptr audioOutputNode;
+
+  std::atomic<int> inputMode { 0 };
+  std::atomic<int> selectedInputChannel { 0 };
+  std::atomic<float> oscFreq1 { 150.0f };
+  std::atomic<float> oscFreq2 { 220.0f };
+  double oscPhase1 = 0.0;
+  double oscPhase2 = 0.0;
+  // Master output gain (1.0 = unity)
+public:
+  void setOutputGain (float g) noexcept { outputGain.store (g); }
+  float getOutputGain() const noexcept { return outputGain.load(); }
+
+  std::atomic<float> outputGain { 1.0f };
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DissonanceMeeter)
 };
