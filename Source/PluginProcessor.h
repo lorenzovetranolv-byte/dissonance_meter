@@ -1,4 +1,4 @@
-﻿/*
+/*
   ==============================================================================
     PluginProcessor.h
     Ordered & cleaned: core JUCE overrides kept; custom processors (BandPass, Distortion)
