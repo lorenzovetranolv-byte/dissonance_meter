@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="rmxdxx" name="DissonanceMeeter" projectType="audioplug" displaySplashScreen="1"
-              jucerFormatVersion="1" pluginFormats="buildAU,buildStandalone">
+              jucerFormatVersion="1" pluginFormats="buildAU,buildAUv3,buildStandalone"
+              version="1.0.0" companyName="Vetrano Lorenzo" companyEmail="lorenzo.vetrano@edu.unito.it">
   <MAINGROUP id="yTHdxr" name="DissonanceMeeter">
     <GROUP id="{2DECAD1A-9914-D20C-3F3B-349866EF7436}" name="Source">
       <FILE id="v1t2WY" name="Distortion.h" compile="0" resource="0" file="Source/Distortion.h"/>
