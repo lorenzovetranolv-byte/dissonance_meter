@@ -1,0 +1,31 @@
+name: Build AU Plugin (macOS)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install cmake ninja pkg-config
+
+      - name: Build plugin
+        run: |
+          mkdir build
+          cd build
+          cmake .. -G "Xcode" -DJUCE_BUILD_AU=ON
+          xcodebuild -project MyPlugin.xcodeproj -configuration Release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AU-Build
+          path: build/Release/*.component
