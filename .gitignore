@@ -45,10 +45,6 @@ Makefile
 ninja.build
 .build/
 
-# JUCE Generated code (keep if you edit manually) ----
-# JuceLibraryCode is auto-generated from the .jucer file
-JuceLibraryCode/
-
 # If Projucer auto-exporters regenerate these, you can ignore exporter folders
 # Uncomment if you want to ignore ALL exporter build folders (adjust as needed)
 # Builds/
