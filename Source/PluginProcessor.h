@@ -51,19 +51,23 @@ private:
   juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
   {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
-    // Adjusted for Helmholtz third-tone testing: allow low center frequencies down to 16 Hz and
-    // tighter Q range suitable for resonance testing (1..5). Default fc=200Hz, Q=3.0
-    // Band-pass center restricted to 16..200 Hz to allow sweep: 200 -> 60 -> 30 -> 16
-    params.push_back (std::make_unique<juce::AudioParameterFloat>("FREQUENCY", "Frequency", juce::NormalisableRange<float>(16.0f, 200.0f, 0.0f, 0.25f), 200.0f));
-    params.push_back (std::make_unique<juce::AudioParameterFloat>("Q",         "Q",         juce::NormalisableRange<float>(1.0f, 5.0f,    0.0f, 0.4f),   3.0f));
+    // Broadened ranges for more flexible use
+    // Band-pass center:20..20000 Hz (log-like skew), default200 Hz
+    params.push_back (std::make_unique<juce::AudioParameterFloat>(
+                      "FREQUENCY", "Frequency",
+                      juce::NormalisableRange<float>(20.0f, 20000.0f, 0.0f, 0.25f), 200.0f));
+    // Q:0.2..15 for narrow/wide bandwidth control, default3.0
+    params.push_back (std::make_unique<juce::AudioParameterFloat>(
+                      "Q",         "Q",
+                      juce::NormalisableRange<float>(0.2f, 15.0f,    0.0f, 0.4f),   3.0f));
     return { params.begin(), params.end() };
   }
 
   void updateCoefficients()
   {
     *filter.state = *juce::dsp::IIR::Coefficients<float>::makeBandPass (currentSampleRate,
-                      juce::jlimit (16.0f, 200.0f, frequency.getNextValue()),
-                      juce::jlimit (1.0f,  5.0f,    q.getNextValue()));
+                      juce::jlimit (20.0f, 20000.0f, frequency.getNextValue()),
+                      juce::jlimit (0.2f, 15.0f,    q.getNextValue()));
   }
 
   float currentSampleRate = 44100.0f;
@@ -150,8 +154,10 @@ private:
   juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
   {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
-    // Nonlinearity parameter A: narrow range for stability and testing of third-tone (0.2..1.2)
-    params.push_back (std::make_unique<juce::AudioParameterFloat>("A", "A", juce::NormalisableRange<float>(0.2f, 1.2f, 0.0f, 0.4f), 0.6f));
+    // Nonlinearity parameter A: extended range for stronger effect0.1..5.0
+    params.push_back (std::make_unique<juce::AudioParameterFloat>(
+                      "A", "A",
+                      juce::NormalisableRange<float>(0.1f, 5.0f, 0.0f, 0.3f), 0.6f));
     return { params.begin(), params.end() };
   }
 
