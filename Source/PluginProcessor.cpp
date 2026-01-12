@@ -1,7 +1,7 @@
 /*
   ==============================================================================
 
-    This file contains the basic framework code for a JUCE plugin processor.
+    This file contains the basic framework code for a JUce plugin processor.
 
   ==============================================================================
 */
@@ -29,6 +29,9 @@ DissonanceMeeter::DissonanceMeeter()
   waveForm.setBufferSize (512);
   waveForm.setSamplesPerBlock (256);
   waveForm.setColours (juce::Colours::black, juce::Colours::lime);
+
+  // Build the processing graph once, and keep nodes stable for the editor
+  initialiseGraph();
 }
 
 DissonanceMeeter::~DissonanceMeeter()
@@ -53,15 +56,21 @@ void DissonanceMeeter::changeProgramName (int, const juce::String&) {}
 //==============================================================================
 void DissonanceMeeter::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-  lastSampleRate     = sampleRate;
-  lastBlockSize      = samplesPerBlock;
-  numInputChannels   = getMainBusNumInputChannels();
-  numOutputChannels  = getMainBusNumOutputChannels();
+  lastSampleRate = sampleRate;
+  lastBlockSize = samplesPerBlock;
+  numInputChannels = getMainBusNumInputChannels();
+  numOutputChannels = getMainBusNumOutputChannels();
 
+  // Configure the outer graph and its child nodes with current runtime details
   mainProcessor->setPlayConfigDetails (numInputChannels, numOutputChannels, sampleRate, samplesPerBlock);
+
+  // Ensure play config for each internal processor reflects current host settings
+  for (auto* node : mainProcessor->getNodes())
+    node->getProcessor()->setPlayConfigDetails (numInputChannels, numOutputChannels, lastSampleRate, lastBlockSize);
+
+  // Prepare the graph (this will prepare child nodes too)
   mainProcessor->prepareToPlay (sampleRate, samplesPerBlock);
 
-  initialiseGraph();
   initialiseOscillator (sampleRate);
 }
 
@@ -74,12 +83,18 @@ void DissonanceMeeter::initialiseOscillator (double sampleRate) noexcept
 
 void DissonanceMeeter::initialiseGraph()
 {
-  mainProcessor->clear();
-  //INVERTIRE NODI -> INPUT - DISTORSIONE - BANDPASS FILTER  - OUTPUT
-  audioInputNode  = mainProcessor->addNode (std::make_unique<AudioGraphIOProcessor>(AudioGraphIOProcessor::audioInputNode));
-  bandPassNode    = mainProcessor->addNode (std::make_unique<BandPassFilter>());
-  distortionNode  = mainProcessor->addNode (std::make_unique<Distortion>());
-  audioOutputNode = mainProcessor->addNode (std::make_unique<AudioGraphIOProcessor>(AudioGraphIOProcessor::audioOutputNode));
+  // Build nodes only once to keep stable references for the editor
+  if (mainProcessor == nullptr)
+    mainProcessor = std::make_unique<juce::AudioProcessorGraph>();
+
+  if (audioInputNode == nullptr)
+    audioInputNode = mainProcessor->addNode (std::make_unique<AudioGraphIOProcessor>(AudioGraphIOProcessor::audioInputNode));
+  if (bandPassNode == nullptr)
+    bandPassNode = mainProcessor->addNode (std::make_unique<BandPassFilter>());
+  if (distortionNode == nullptr)
+    distortionNode = mainProcessor->addNode (std::make_unique<Distortion>());
+  if (audioOutputNode == nullptr)
+    audioOutputNode = mainProcessor->addNode (std::make_unique<AudioGraphIOProcessor>(AudioGraphIOProcessor::audioOutputNode));
 
   connectAudioNodes();
 }
