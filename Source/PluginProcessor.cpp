@@ -76,7 +76,7 @@ void DissonanceMeeter::prepareToPlay (double sampleRate, int samplesPerBlock)
 
 void DissonanceMeeter::initialiseOscillator (double sampleRate) noexcept
 {
-  (void) sampleRate; // suppress unused parameter warning
+  (void) sampleRate;
   oscPhase1 = 0.0;
   oscPhase2 = 0.0;
 }
