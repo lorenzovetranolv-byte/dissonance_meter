@@ -250,7 +250,12 @@ public:
   void setOutputGain (float g) noexcept { outputGain.store (g); }
   float getOutputGain() const noexcept { return outputGain.load(); }
 
-  std::atomic<float> outputGain { 1.0f };
+  // Meter: RMS output level in dBFS, updated per block
+  void updateOutputLevelRms (float dbfs) noexcept { outputLevelRms.store (dbfs); }
+  float getOutputLevelRms() const noexcept { return outputLevelRms.load(); }
+
+  std::atomic<float> outputGain {1.0f };
+  std::atomic<float> outputLevelRms { -100.0f };
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DissonanceMeeter)
 };

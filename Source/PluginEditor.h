@@ -14,7 +14,7 @@
 //==============================================================================
 /**
 */
-class DissonanceMeeterAudioProcessorEditor  : public juce::AudioProcessorEditor
+class DissonanceMeeterAudioProcessorEditor  : public juce::AudioProcessorEditor, public juce::Timer
 {
 public:
   //riferimento a oggetto bandpass, costruttore di base senza il filtro
@@ -25,6 +25,7 @@ public:
     //==============================================================================
     void paint (juce::Graphics&) override;
     void resized() override;
+    void timerCallback() override;
 
 private:
     // This reference is provided as a quick way for your editor to
@@ -50,6 +51,14 @@ private:
     DissonanceMeeter& audioProcessor;
     BandPassFilter& bandPassProcessor;
     Distortion& distortionProcessor;
+
+    // Meter layout constants
+    int meterX =0;
+    int meterY =0;
+    int meterW =16;
+    int meterH =0;
+    static constexpr float meterMinDb = -60.0f;
+    static constexpr float meterMaxDb =0.0f;
 
 public:
   std::unique_ptr<AudioProcessorValueTreeState::SliderAttachment> sliderAttachment1;

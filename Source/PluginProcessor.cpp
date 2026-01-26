@@ -144,7 +144,7 @@ void DissonanceMeeter::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
 
   // Clear extra outputs if any
   for (int ch = getTotalNumInputChannels(); ch < getTotalNumOutputChannels(); ++ch)
-    buffer.clear (ch, 0, buffer.getNumSamples());
+    buffer.clear (ch,0, buffer.getNumSamples());
 
   // If in ExternalInput mode, pass through main graph; otherwise generate internal oscillator signal
   if (getInputMode() == InputMode::ExternalInput)
@@ -157,17 +157,17 @@ void DissonanceMeeter::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
     // Oscillator mode: generate two-sine blend and write to all output channels
     const int numSamples = buffer.getNumSamples();
     const int numCh = buffer.getNumChannels();
-    const double sr = lastSampleRate > 0.0 ? lastSampleRate : 44100.0;
+    const double sr = lastSampleRate >0.0 ? lastSampleRate :44100.0;
     const float f1 = oscFreq1.load();
     const float f2 = oscFreq2.load();
-    for (int ch = 0; ch < numCh; ++ch)
+    for (int ch =0; ch < numCh; ++ch)
     {
       float* data = buffer.getWritePointer (ch);
-      for (int i = 0; i < numSamples; ++i)
+      for (int i =0; i < numSamples; ++i)
       {
         const float s1 = static_cast<float> (std::sin (oscPhase1));
         const float s2 = static_cast<float> (std::sin (oscPhase2));
-        data[i] = 0.5f * s1 + 0.5f * s2;
+        data[i] =0.5f * s1 +0.5f * s2;
         oscPhase1 += juce::MathConstants<double>::twoPi * (f1 / sr);
         oscPhase2 += juce::MathConstants<double>::twoPi * (f2 / sr);
         if (oscPhase1 > juce::MathConstants<double>::twoPi) oscPhase1 -= juce::MathConstants<double>::twoPi;
@@ -177,7 +177,7 @@ void DissonanceMeeter::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
   }
 
   // If selected to use a single external channel, copy that channel to outputs
-  if (getInputMode() == InputMode::ExternalInput && getSelectedInputChannel() >= 0)
+  if (getInputMode() == InputMode::ExternalInput && getSelectedInputChannel() >=0)
   {
     const int sel = getSelectedInputChannel();
     if (sel < buffer.getNumChannels())
@@ -185,7 +185,7 @@ void DissonanceMeeter::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
       // duplicate selected input channel into all outputs
       const int samples = buffer.getNumSamples();
       const float* src = buffer.getReadPointer (sel);
-      for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+      for (int ch =0; ch < buffer.getNumChannels(); ++ch)
       {
         if (ch == sel) continue;
         float* dst = buffer.getWritePointer (ch);
@@ -197,12 +197,25 @@ void DissonanceMeeter::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
   waveForm.pushBuffer (buffer);
 
   // Apply master output gain to entire buffer
-  const float gain = juce::jlimit (0.0f, 4.0f, getOutputGain()); // clamp gain 0..4
-  if (gain != 1.0f)
+  const float gain = juce::jlimit (0.0f,4.0f, getOutputGain()); // clamp gain0..4
+  if (gain !=1.0f)
   {
-    for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
-      buffer.applyGain (ch, 0, buffer.getNumSamples(), gain);
+    for (int ch =0; ch < buffer.getNumChannels(); ++ch)
+      buffer.applyGain (ch,0, buffer.getNumSamples(), gain);
   }
+
+  // Compute RMS in dBFS across all channels for the block
+  double sumSquares =0.0;
+  int totalSamples = buffer.getNumSamples() * buffer.getNumChannels();
+  for (int ch =0; ch < buffer.getNumChannels(); ++ch)
+  {
+    const float* d = buffer.getReadPointer (ch);
+    for (int i =0; i < buffer.getNumSamples(); ++i)
+      sumSquares += (double)d[i] * (double)d[i];
+  }
+  float rms = totalSamples >0 ? (float) std::sqrt (sumSquares / (double) totalSamples) :0.0f;
+  float dbfs = rms >0.0f ?20.0f * std::log10 (rms) : -100.0f;
+  updateOutputLevelRms (dbfs);
 }
 
 //==============================================================================

@@ -108,6 +108,8 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor (Diss
   masterGainLabel.setJustificationType (juce::Justification::centredLeft);
 
   setSize(640,420);
+  setOpaque (true);
+  startTimerHz (30);
 }
 
 DissonanceMeeterAudioProcessorEditor::~DissonanceMeeterAudioProcessorEditor()
@@ -117,97 +119,136 @@ DissonanceMeeterAudioProcessorEditor::~DissonanceMeeterAudioProcessorEditor()
 //==============================================================================
 void DissonanceMeeterAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    // (Our component is opaque, so we must completely fill the background with a solid colour)
-  g.setColour(juce::Colours::black);
-  g.setFont(15.0f);
-  g.setGradientFill(juce::ColourGradient{ juce::Colours::darkgrey, getLocalBounds().toFloat().getCentre(), juce::Colours::darkgrey.darker(0.7f), {}, true });
-  g.fillRect(getLocalBounds());
+  g.fillAll (juce::Colours::black);
+
+  // Background
+  g.setGradientFill (juce::ColourGradient { juce::Colours::darkgrey, getLocalBounds().toFloat().getCentre(), juce::Colours::darkgrey.darker (0.7f), {}, true });
+  g.fillRect (getLocalBounds());
+
+  // Compute meter geometry: left side, from top padding to mid-height
+  const int padding =16;
+  meterX = padding;
+  meterY = padding;
+  meterH = getHeight() /2 - padding; // to mid-window
+  meterW =18; // slightly wider
+
+  // Draw meter background
+  juce::Rectangle<int> meterBounds { meterX, meterY, meterW, meterH };
+  g.setColour (juce::Colours::darkgrey.withAlpha (0.8f));
+  g.fillRect (meterBounds);
+  g.setColour (juce::Colours::grey);
+  g.drawRect (meterBounds,1);
+
+  // Get current level and map to fill height
+  const float db = juce::jlimit (meterMinDb, meterMaxDb, audioProcessor.getOutputLevelRms());
+  const float norm = (db - meterMinDb) / (meterMaxDb - meterMinDb); //0..1
+  const int fillH = (int) std::round (norm * (float) meterH);
+  juce::Rectangle<int> fillBounds { meterX +1, meterY + meterH - fillH +1, meterW -2, fillH -2 };
+
+  // Gradient from green (bottom) -> yellow (mid) -> red (top)
+  auto colBottom = juce::Colours::green;
+  auto colMid = juce::Colours::yellow;
+  auto colTop = juce::Colours::red;
+  juce::ColourGradient grad (colBottom, fillBounds.getBottomLeft().toFloat(), colTop, fillBounds.getTopLeft().toFloat(), false);
+  grad.addColour (0.5, colMid);
+  g.setGradientFill (grad);
+  g.fillRect (fillBounds);
 }
 
 void DissonanceMeeterAudioProcessorEditor::resized()
 {
-    // Layout constants (updated per your request)
-  const int padding =16; // symmetric margins
-  const int knobSizeDefault =120;
-  const int labelH =18;
-  const int btnW =24;
-  const int rightPanelW =240; // fixed right panel width
-  const int rightPanelX = getWidth() - padding - rightPanelW; // symmetric right border
+ // Layout constants
+ const int padding =16;
+ const int leftMeterW =24; // fixed meter column width
+ const int contentLeft = padding + leftMeterW + padding; // start of content area
+ const int labelH =18;
+ const int knobSizeDefault =120;
+ const int rightPanelW =240; // fixed right panel width
+ const int rightPanelX = getWidth() - padding - rightPanelW;
 
-  // Compute dynamic knob width to avoid overlap with right panel
-  const int availableLeftWidth = juce::jmax(0, rightPanelX - padding);
-  const int computedKnobW = (availableLeftWidth -2 * padding) /3; //3 knobs,2 gaps
-  const int knobW = juce::jlimit(80, knobSizeDefault, computedKnobW); // clamp between80 and default size
+ // Compute dynamic knob width to avoid overlap with right panel
+ const int availableLeftWidth = juce::jmax(0, rightPanelX - contentLeft);
+ const int computedKnobW = (availableLeftWidth -2 * padding) /3; //3 knobs,2 gaps
+ const int knobW = juce::jlimit(90, knobSizeDefault, computedKnobW);
 
-  // Row1: three rotary knobs: Freq, Q, A (left side)
-  const int row1Y = padding +28; // leave room for labels above
-  minFrequency.setBounds(padding, row1Y, knobW, knobW);
-  maxFrequency.setBounds(padding + knobW + padding, row1Y, knobW, knobW);
-  AValue.setBounds(padding +2 * (knobW + padding), row1Y, knobW, knobW);
+ // Row1: three rotary knobs: Freq, Q, A
+ const int row1Y = padding +28;
+ minFrequency.setBounds(contentLeft, row1Y, knobW, knobW);
+ maxFrequency.setBounds(contentLeft + knobW + padding, row1Y, knobW, knobW);
+ AValue.setBounds(contentLeft +2 * (knobW + padding), row1Y, knobW, knobW);
 
-  // Labels above the knobs
-  freqLabel.setBounds(minFrequency.getX(), row1Y - labelH -6, knobW, labelH);
-  qLabel.setBounds(maxFrequency.getX(), row1Y - labelH -6, knobW, labelH);
-  aLabel.setBounds(AValue.getX(), row1Y - labelH -6, knobW, labelH);
+ // Labels above the knobs
+ freqLabel.setBounds(minFrequency.getX(), row1Y - labelH -6, knobW, labelH);
+ qLabel.setBounds(maxFrequency.getX(), row1Y - labelH -6, knobW, labelH);
+ aLabel.setBounds(AValue.getX(), row1Y - labelH -6, knobW, labelH);
 
-  // Mode selector and master gain on right (aligned to right with symmetric padding)
-  modeSelector.setBounds(rightPanelX, row1Y -24, rightPanelW,28);
-  masterGainLabel.setBounds(rightPanelX, row1Y +20, rightPanelW,20);
-  masterGainSlider.setBounds(rightPanelX, row1Y +42, rightPanelW,22);
+ // Mode selector and master gain on right
+ modeSelector.setBounds(rightPanelX, row1Y -24, rightPanelW,28);
+ masterGainLabel.setBounds(rightPanelX, row1Y +20, rightPanelW,20);
+ masterGainSlider.setBounds(rightPanelX, row1Y +42, rightPanelW,22);
 
-  // Row2: oscillator sliders and labels (full width, keep right border symmetric)
-  const int row2Y = row1Y + knobW +40; // depends on actual knob size
-  const int textLabelW =150;
-  const int sliderX = padding + textLabelW + padding;
-  const int sliderRight = getWidth() - padding; // symmetric right edge
-  const int sliderGap =16; // extra horizontal gap between slider (with its textbox) and '-' button
-  const int sliderUsableW = sliderRight - sliderX - (btnW *2 + padding + sliderGap);
+ // Row2: oscillator sliders and labels
+ const int row2Y = row1Y + knobW +40;
+ const int textLabelW =150;
+ const int sliderX = contentLeft + textLabelW + padding;
+ const int btnW =24;
+ const int sliderRight = getWidth() - padding;
+ const int sliderGap =12;
+ const int sliderUsableW = sliderRight - sliderX - (btnW *2 + padding + sliderGap);
 
-  osc1Label.setBounds(padding, row2Y -2, textLabelW, labelH);
-  oscFreq1Slider.setBounds(sliderX, row2Y, juce::jmax(100, sliderUsableW),24);
-  // Place buttons so their right edge aligns at sliderRight, with extra gap from slider textbox
-  oscFreq1Minus.setBounds(sliderRight - (btnW *2 + padding), row2Y, btnW,24);
-  oscFreq1Plus.setBounds (sliderRight - btnW, row2Y, btnW,24);
+ osc1Label.setBounds(contentLeft, row2Y -2, textLabelW, labelH);
+ oscFreq1Slider.setBounds(sliderX, row2Y, juce::jmax(120, sliderUsableW),24);
+ oscFreq1Minus.setBounds(sliderRight - (btnW *2 + padding), row2Y, btnW,24);
+ oscFreq1Plus.setBounds(sliderRight - btnW, row2Y, btnW,24);
 
-  const int row3Y = row2Y +30 + padding;
-  osc2Label.setBounds(padding, row3Y -2, textLabelW, labelH);
-  oscFreq2Slider.setBounds(sliderX, row3Y, juce::jmax(100, sliderUsableW),24);
-  oscFreq2Minus.setBounds(sliderRight - (btnW *2 + padding), row3Y, btnW,24);
-  oscFreq2Plus.setBounds (sliderRight - btnW, row3Y, btnW,24);
+ const int row3Y = row2Y +30 + padding;
+ osc2Label.setBounds(contentLeft, row3Y -2, textLabelW, labelH);
+ oscFreq2Slider.setBounds(sliderX, row3Y, juce::jmax(120, sliderUsableW),24);
+ oscFreq2Minus.setBounds(sliderRight - (btnW *2 + padding), row3Y, btnW,24);
+ oscFreq2Plus.setBounds(sliderRight - btnW, row3Y, btnW,24);
 
-  // Waveform view bottom (respects symmetric margins)
-  const int waveTop = row3Y +24 +2 * padding;
-  audioProcessor.waveForm.setBounds(padding, waveTop, getWidth() -2 * padding, getHeight() - waveTop - padding);
+ // Waveform view bottom
+ const int waveTop = row3Y +24 +2 * padding;
+ audioProcessor.waveForm.setBounds(contentLeft, waveTop, getWidth() - contentLeft - padding, getHeight() - waveTop - padding);
 
-  // Update oscillator frequencies when sliders change
-  minFrequency.onValueChange = [this]() {
-    if (audioProcessor.getInputMode() == DissonanceMeeter::InputMode::Oscillator)
-      audioProcessor.setOscillatorFrequencies ((float) minFrequency.getValue(), audioProcessor.getOscillatorFrequencies().second);
-  };
-  maxFrequency.onValueChange = [this]() {
-    if (audioProcessor.getInputMode() == DissonanceMeeter::InputMode::Oscillator)
-      audioProcessor.setOscillatorFrequencies (audioProcessor.getOscillatorFrequencies().first, (float) maxFrequency.getValue());
-  };
+ // Meter geometry (left column, from top padding to mid-height)
+ meterX = padding;
+ meterY = padding;
+ meterW = leftMeterW;
+ meterH = getHeight() /2 - padding;
 
-  // Oscillator sliders callbacks
-  auto freqs = audioProcessor.getOscillatorFrequencies();
-  if (freqs.first >0.0f)
-    oscFreq1Slider.setValue (freqs.first, juce::dontSendNotification);
-  if (freqs.second >0.0f)
-    oscFreq2Slider.setValue (freqs.second, juce::dontSendNotification);
+ // Update oscillator frequencies when sliders change (unchanged)
+ minFrequency.onValueChange = [this]() {
+ if (audioProcessor.getInputMode() == DissonanceMeeter::InputMode::Oscillator)
+ audioProcessor.setOscillatorFrequencies((float) minFrequency.getValue(), audioProcessor.getOscillatorFrequencies().second);
+ };
+ maxFrequency.onValueChange = [this]() {
+ if (audioProcessor.getInputMode() == DissonanceMeeter::InputMode::Oscillator)
+ audioProcessor.setOscillatorFrequencies(audioProcessor.getOscillatorFrequencies().first, (float) maxFrequency.getValue());
+ };
 
-  oscFreq1Slider.onValueChange = [this]() {
-    if (audioProcessor.getInputMode() == DissonanceMeeter::InputMode::Oscillator)
-      audioProcessor.setOscillatorFrequencies ((float) oscFreq1Slider.getValue(), audioProcessor.getOscillatorFrequencies().second);
-  };
-  oscFreq2Slider.onValueChange = [this]() {
-    if (audioProcessor.getInputMode() == DissonanceMeeter::InputMode::Oscillator)
-      audioProcessor.setOscillatorFrequencies (audioProcessor.getOscillatorFrequencies().first, (float) oscFreq2Slider.getValue());
-  };
+ auto freqs = audioProcessor.getOscillatorFrequencies();
+ if (freqs.first >0.0f)
+ oscFreq1Slider.setValue(freqs.first, juce::dontSendNotification);
+ if (freqs.second >0.0f)
+ oscFreq2Slider.setValue(freqs.second, juce::dontSendNotification);
 
-  // +/- buttons behaviour
-  oscFreq1Minus.onClick = [this]() { oscFreq1Slider.setValue (oscFreq1Slider.getValue() -1.0, juce::sendNotification); };
-  oscFreq1Plus.onClick = [this]() { oscFreq1Slider.setValue (oscFreq1Slider.getValue() +1.0, juce::sendNotification); };
-  oscFreq2Minus.onClick = [this]() { oscFreq2Slider.setValue (oscFreq2Slider.getValue() -1.0, juce::sendNotification); };
-  oscFreq2Plus.onClick = [this]() { oscFreq2Slider.setValue (oscFreq2Slider.getValue() +1.0, juce::sendNotification); };
+ oscFreq1Slider.onValueChange = [this]() {
+ if (audioProcessor.getInputMode() == DissonanceMeeter::InputMode::Oscillator)
+ audioProcessor.setOscillatorFrequencies((float) oscFreq1Slider.getValue(), audioProcessor.getOscillatorFrequencies().second);
+ };
+ oscFreq2Slider.onValueChange = [this]() {
+ if (audioProcessor.getInputMode() == DissonanceMeeter::InputMode::Oscillator)
+ audioProcessor.setOscillatorFrequencies(audioProcessor.getOscillatorFrequencies().first, (float) oscFreq2Slider.getValue());
+ };
+
+ oscFreq1Minus.onClick = [this]() { oscFreq1Slider.setValue(oscFreq1Slider.getValue() -1.0, juce::sendNotification); };
+ oscFreq1Plus.onClick = [this]() { oscFreq1Slider.setValue(oscFreq1Slider.getValue() +1.0, juce::sendNotification); };
+ oscFreq2Minus.onClick = [this]() { oscFreq2Slider.setValue(oscFreq2Slider.getValue() -1.0, juce::sendNotification); };
+ oscFreq2Plus.onClick = [this]() { oscFreq2Slider.setValue(oscFreq2Slider.getValue() +1.0, juce::sendNotification); };
+}
+
+void DissonanceMeeterAudioProcessorEditor::timerCallback()
+{
+ repaint();
 }
