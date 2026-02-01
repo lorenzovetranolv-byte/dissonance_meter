@@ -58,7 +58,7 @@ private:
     int meterW =16;
     int meterH =0;
     static constexpr float meterMinDb = -60.0f;
-    static constexpr float meterMaxDb =0.0f;
+    static constexpr float meterMaxDb = +18.0f;
 
 public:
   std::unique_ptr<AudioProcessorValueTreeState::SliderAttachment> sliderAttachment1;

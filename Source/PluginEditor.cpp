@@ -83,7 +83,7 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor (Diss
     audioProcessor.setInputMode (m);
   };
 
-  addAndMakeVisible (&modeSelector);
+  addAndMakeVisible(&modeSelector);
   addAndMakeVisible(&minFrequency);
   addAndMakeVisible(&maxFrequency);
   addAndMakeVisible(&AValue);
@@ -125,11 +125,11 @@ void DissonanceMeeterAudioProcessorEditor::paint (juce::Graphics& g)
   g.setGradientFill (juce::ColourGradient { juce::Colours::darkgrey, getLocalBounds().toFloat().getCentre(), juce::Colours::darkgrey.darker (0.7f), {}, true });
   g.fillRect (getLocalBounds());
 
-  // Compute meter geometry: left side, from top padding to mid-height
+  // Compute meter geometry: left side, full height with bottom margin
   const int padding =16;
   meterX = padding;
   meterY = padding;
-  meterH = getHeight() /2 - padding; // to mid-window
+  meterH = getHeight() - padding * 3; // quasi tutta l'altezza
   meterW =18; // slightly wider
 
   // Draw meter background
@@ -211,11 +211,11 @@ void DissonanceMeeterAudioProcessorEditor::resized()
  const int waveTop = row3Y +24 +2 * padding;
  audioProcessor.waveForm.setBounds(contentLeft, waveTop, getWidth() - contentLeft - padding, getHeight() - waveTop - padding);
 
- // Meter geometry (left column, from top padding to mid-height)
+ // Meter geometry (left column, full height with bottom margin)
  meterX = padding;
  meterY = padding;
  meterW = leftMeterW;
- meterH = getHeight() /2 - padding;
+ meterH = getHeight() - padding * 3;
 
  // Update oscillator frequencies when sliders change (unchanged)
  minFrequency.onValueChange = [this]() {

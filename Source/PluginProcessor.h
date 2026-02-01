@@ -122,15 +122,26 @@ public:
       {
         float in  = data[i];
         float A    = drive.getNextValue();
+
+        // Calcola x''(t) basato su stato al tempo t-1
         float ddx = in - 60.0f * dx - 900.0f * x - A * (x * x);
-        float dxNew = dx + ddx * dt;
-        float xNew  = x  + dx * dt;
+
+        // Aggiorna x(t) usando x(t-1) e x'(t-1)
+        float xNew = x + dx * dt;
+
+        // Aggiorna x'(t) usando x'(t-1) e x''(t-1) [valore precedente!]
+        float dxNew = dx + ddxPrev * dt;
+
+        // Applica limiti per stabilità numerica
         xNew  = juce::jlimit (-5.0f, 5.0f, xNew);
         dxNew = juce::jlimit (-500.0f, 500.0f, dxNew);
+
+        // Output = x(t)
         data[i] = xNew;
+
+        // Salva stato per prossima iterazione
         x = xNew;
         dx = dxNew;
-        dxPrev = dxNew;
         ddxPrev = ddx;
       }
     }
