@@ -115,7 +115,6 @@ public:
       auto* data = buffer.getWritePointer (ch);
       float& x    = xState[ch];
       float& dx   = xPrimeState[ch];
-      float& dxPrev = xPrimePrev[ch];
       float& ddxPrev= xDoublePrev[ch];
 
       for (int i = 0; i < numSamples; ++i)
