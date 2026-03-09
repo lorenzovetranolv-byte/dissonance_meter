@@ -91,7 +91,6 @@ public:
     auto channels = getTotalNumOutputChannels();
     xState.assign (channels, 0.0f);
     xPrimeState.assign (channels, 0.0f);
-    xPrimePrev.assign (channels, 0.0f);
     xDoublePrev.assign (channels, 0.0f);
   }
 
@@ -106,7 +105,6 @@ public:
     {
       xState.resize (numChannels, 0.0f);
       xPrimeState.resize (numChannels, 0.0f);
-      xPrimePrev.resize (numChannels, 0.0f);
       xDoublePrev.resize (numChannels, 0.0f);
     }
 
@@ -115,32 +113,30 @@ public:
       auto* data = buffer.getWritePointer (ch);
       float& x    = xState[ch];
       float& dx   = xPrimeState[ch];
-      float& ddxPrev= xDoublePrev[ch];
+      float& ddxPrev = xDoublePrev[ch];
 
       for (int i = 0; i < numSamples; ++i)
       {
         float in  = data[i];
         float A    = drive.getNextValue();
 
-        // Calcola x''(t) basato su stato al tempo t-1
+        // Aggiorna x'(t) e x(t) usando x''(t-1) e x'(t-1)
+        float dxPrev = dx;
+        float xPrev  = x;
+        dx = dxPrev + ddxPrev * dt;   // x'(t) = x'(t-1) + x''(t-1)*dt
+        x  = xPrev  + dxPrev * dt;    // x(t)  = x(t-1)  + x'(t-1)*dt
+
+        // Applica limiti per stabilità numerica su stato integrato
+        x  = juce::jlimit (-5.0f, 5.0f, x);
+        dx = juce::jlimit (-500.0f, 500.0f, dx);
+
+        // Calcola x''(t) sul nuovo stato corrente
         float ddx = in - 60.0f * dx - 900.0f * x - A * (x * x);
 
-        // Aggiorna x(t) usando x(t-1) e x'(t-1)
-        float xNew = x + dx * dt;
+        // Output = posizione x(t)
+        data[i] = x;
 
-        // Aggiorna x'(t) usando x'(t-1) e x''(t-1) [valore precedente!]
-        float dxNew = dx + ddxPrev * dt;
-
-        // Applica limiti per stabilità numerica
-        xNew  = juce::jlimit (-5.0f, 5.0f, xNew);
-        dxNew = juce::jlimit (-500.0f, 500.0f, dxNew);
-
-        // Output = x(t)
-        data[i] = xNew;
-
-        // Salva stato per prossima iterazione
-        x = xNew;
-        dx = dxNew;
+        // Memorizza x''(t) per il passo successivo
         ddxPrev = ddx;
       }
     }
@@ -150,7 +146,6 @@ public:
   {
     std::fill (xState.begin(), xState.end(), 0.0f);
     std::fill (xPrimeState.begin(), xPrimeState.end(), 0.0f);
-    std::fill (xPrimePrev.begin(), xPrimePrev.end(), 0.0f);
     std::fill (xDoublePrev.begin(), xDoublePrev.end(), 0.0f);
     drive.reset (currentSampleRate, 0.02);
   }
@@ -174,8 +169,7 @@ private:
   float currentSampleRate = 44100.0f;
   std::vector<float> xState;       // x(t)
   std::vector<float> xPrimeState;  // x'(t)
-  std::vector<float> xPrimePrev;   // previous derivative
-  std::vector<float> xDoublePrev;  // previous second derivative
+  std::vector<float> xDoublePrev;  // x''(t-1)
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Distortion)
 };
