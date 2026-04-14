@@ -41,17 +41,6 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor (Diss
   // Distortion drive A: increased headroom for stronger effect
   AValue.setRange (0.1,5.0,0.01);
 
-  // Oscillator frequency sliders
-  oscFreq1Slider.setSliderStyle(Slider::SliderStyle::LinearHorizontal);
-  oscFreq1Slider.setTextBoxStyle(Slider::TextBoxRight, true,80,20);
-  oscFreq1Slider.setRange (20.0,20000.0,1.0);
-  oscFreq1Slider.setSkewFactorFromMidPoint (440.0);
-
-  oscFreq2Slider.setSliderStyle(Slider::SliderStyle::LinearHorizontal);
-  oscFreq2Slider.setTextBoxStyle(Slider::TextBoxRight, true,80,20);
-  oscFreq2Slider.setRange (20.0,20000.0,1.0);
-  oscFreq2Slider.setSkewFactorFromMidPoint (440.0);
-
   masterGainSlider.setSliderStyle(Slider::SliderStyle::LinearHorizontal);
   // place master gain in the right panel under the mode selector
   masterGainSlider.setTextBoxStyle(Slider::TextBoxRight, true,80,20);
@@ -69,37 +58,17 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor (Diss
   setupLabel (freqLabel, "Frequenza");
   setupLabel (qLabel, "Q");
   setupLabel (aLabel, "A (Distorsione)");
-  setupLabel (osc1Label, "Oscillatore1 (Hz)");
-  setupLabel (osc2Label, "Oscillatore2 (Hz)");
 
   audioProcessor.waveForm.setColours(Colours::black, Colours::white);
 
-  // Mode selector: External input vs Oscillator
-  modeSelector.addItem ("External Input",1);
-  modeSelector.addItem ("Internal Oscillator",2);
-  modeSelector.setSelectedId (1);
-  modeSelector.onChange = [this]() {
-    auto m = modeSelector.getSelectedId() ==1 ? DissonanceMeeter::InputMode::ExternalInput : DissonanceMeeter::InputMode::Oscillator;
-    audioProcessor.setInputMode (m);
-  };
-
-  addAndMakeVisible(&modeSelector);
   addAndMakeVisible(&minFrequency);
   addAndMakeVisible(&maxFrequency);
   addAndMakeVisible(&AValue);
-  addAndMakeVisible(&oscFreq1Slider);
-  addAndMakeVisible(&oscFreq2Slider);
-  addAndMakeVisible(&oscFreq1Minus);
-  addAndMakeVisible(&oscFreq1Plus);
-  addAndMakeVisible(&oscFreq2Minus);
-  addAndMakeVisible(&oscFreq2Plus);
   addAndMakeVisible(&masterGainSlider);
   addAndMakeVisible(&masterGainLabel);
   addAndMakeVisible(freqLabel);
   addAndMakeVisible(qLabel);
   addAndMakeVisible(aLabel);
-  addAndMakeVisible(osc1Label);
-  addAndMakeVisible(osc2Label);
   addAndMakeVisible(audioProcessor.waveForm);
 
   // Master gain label
@@ -183,32 +152,10 @@ void DissonanceMeeterAudioProcessorEditor::resized()
  aLabel.setBounds(AValue.getX(), row1Y - labelH -6, knobW, labelH);
 
  // Mode selector and master gain on right
- modeSelector.setBounds(rightPanelX, row1Y -24, rightPanelW,28);
  masterGainLabel.setBounds(rightPanelX, row1Y +20, rightPanelW,20);
  masterGainSlider.setBounds(rightPanelX, row1Y +42, rightPanelW,22);
-
- // Row2: oscillator sliders and labels
- const int row2Y = row1Y + knobW +40;
- const int textLabelW =150;
- const int sliderX = contentLeft + textLabelW + padding;
- const int btnW =24;
- const int sliderRight = getWidth() - padding;
- const int sliderGap =12;
- const int sliderUsableW = sliderRight - sliderX - (btnW *2 + padding + sliderGap);
-
- osc1Label.setBounds(contentLeft, row2Y -2, textLabelW, labelH);
- oscFreq1Slider.setBounds(sliderX, row2Y, juce::jmax(120, sliderUsableW),24);
- oscFreq1Minus.setBounds(sliderRight - (btnW *2 + padding), row2Y, btnW,24);
- oscFreq1Plus.setBounds(sliderRight - btnW, row2Y, btnW,24);
-
- const int row3Y = row2Y +30 + padding;
- osc2Label.setBounds(contentLeft, row3Y -2, textLabelW, labelH);
- oscFreq2Slider.setBounds(sliderX, row3Y, juce::jmax(120, sliderUsableW),24);
- oscFreq2Minus.setBounds(sliderRight - (btnW *2 + padding), row3Y, btnW,24);
- oscFreq2Plus.setBounds(sliderRight - btnW, row3Y, btnW,24);
-
  // Waveform view bottom
- const int waveTop = row3Y +24 +2 * padding;
+ const int waveTop = row1Y + knobW + 2 * padding;
  audioProcessor.waveForm.setBounds(contentLeft, waveTop, getWidth() - contentLeft - padding, getHeight() - waveTop - padding);
 
  // Meter geometry (left column, full height with bottom margin)
@@ -217,35 +164,6 @@ void DissonanceMeeterAudioProcessorEditor::resized()
  meterW = leftMeterW;
  meterH = getHeight() - padding * 3;
 
- // Update oscillator frequencies when sliders change (unchanged)
- minFrequency.onValueChange = [this]() {
- if (audioProcessor.getInputMode() == DissonanceMeeter::InputMode::Oscillator)
- audioProcessor.setOscillatorFrequencies((float) minFrequency.getValue(), audioProcessor.getOscillatorFrequencies().second);
- };
- maxFrequency.onValueChange = [this]() {
- if (audioProcessor.getInputMode() == DissonanceMeeter::InputMode::Oscillator)
- audioProcessor.setOscillatorFrequencies(audioProcessor.getOscillatorFrequencies().first, (float) maxFrequency.getValue());
- };
-
- auto freqs = audioProcessor.getOscillatorFrequencies();
- if (freqs.first >0.0f)
- oscFreq1Slider.setValue(freqs.first, juce::dontSendNotification);
- if (freqs.second >0.0f)
- oscFreq2Slider.setValue(freqs.second, juce::dontSendNotification);
-
- oscFreq1Slider.onValueChange = [this]() {
- if (audioProcessor.getInputMode() == DissonanceMeeter::InputMode::Oscillator)
- audioProcessor.setOscillatorFrequencies((float) oscFreq1Slider.getValue(), audioProcessor.getOscillatorFrequencies().second);
- };
- oscFreq2Slider.onValueChange = [this]() {
- if (audioProcessor.getInputMode() == DissonanceMeeter::InputMode::Oscillator)
- audioProcessor.setOscillatorFrequencies(audioProcessor.getOscillatorFrequencies().first, (float) oscFreq2Slider.getValue());
- };
-
- oscFreq1Minus.onClick = [this]() { oscFreq1Slider.setValue(oscFreq1Slider.getValue() -1.0, juce::sendNotification); };
- oscFreq1Plus.onClick = [this]() { oscFreq1Slider.setValue(oscFreq1Slider.getValue() +1.0, juce::sendNotification); };
- oscFreq2Minus.onClick = [this]() { oscFreq2Slider.setValue(oscFreq2Slider.getValue() -1.0, juce::sendNotification); };
- oscFreq2Plus.onClick = [this]() { oscFreq2Slider.setValue(oscFreq2Slider.getValue() +1.0, juce::sendNotification); };
 }
 
 void DissonanceMeeterAudioProcessorEditor::timerCallback()

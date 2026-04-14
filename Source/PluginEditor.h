@@ -33,21 +33,13 @@ private:
     Slider minFrequency;
     Slider maxFrequency;
     Slider AValue;
-    Slider oscFreq1Slider;
-    Slider oscFreq2Slider;
-    TextButton oscFreq1Minus {"-"};
-    TextButton oscFreq1Plus  {"+"};
-    TextButton oscFreq2Minus {"-"};
-    TextButton oscFreq2Plus  {"+"};
     Slider masterGainSlider;
     juce::Label masterGainLabel;
     // Labels for sliders
     juce::Label freqLabel;
     juce::Label qLabel;
     juce::Label aLabel;
-    juce::Label osc1Label;
-    juce::Label osc2Label;
-    ComboBox modeSelector;
+
     DissonanceMeeter& audioProcessor;
     BandPassFilter& bandPassProcessor;
     Distortion& distortionProcessor;

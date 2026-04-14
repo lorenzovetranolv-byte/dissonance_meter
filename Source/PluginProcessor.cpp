@@ -13,16 +13,10 @@
 
 //==============================================================================
 DissonanceMeeter::DissonanceMeeter()
-#ifndef JucePlugin_PreferredChannelConfigurations
   : AudioProcessor (BusesProperties()
-#if ! JucePlugin_IsMidiEffect
- #if ! JucePlugin_IsSynth
       .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
- #endif
       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-#endif
     )
-#endif
 {
   mainProcessor = std::make_unique<juce::AudioProcessorGraph>();
   waveForm.setRepaintRate (30);
@@ -61,6 +55,11 @@ void DissonanceMeeter::prepareToPlay (double sampleRate, int samplesPerBlock)
   numInputChannels = getMainBusNumInputChannels();
   numOutputChannels = getMainBusNumOutputChannels();
 
+  DBG ("[DissonanceMeeter] prepareToPlay sr=" + juce::String (sampleRate)
+       + " bs=" + juce::String (samplesPerBlock)
+       + " inCh=" + juce::String (numInputChannels)
+       + " outCh=" + juce::String (numOutputChannels));
+
   // Configure the outer graph and its child nodes with current runtime details
   mainProcessor->setPlayConfigDetails (numInputChannels, numOutputChannels, sampleRate, samplesPerBlock);
 
@@ -70,15 +69,6 @@ void DissonanceMeeter::prepareToPlay (double sampleRate, int samplesPerBlock)
 
   // Prepare the graph (this will prepare child nodes too)
   mainProcessor->prepareToPlay (sampleRate, samplesPerBlock);
-
-  initialiseOscillator (sampleRate);
-}
-
-void DissonanceMeeter::initialiseOscillator (double sampleRate) noexcept
-{
-  (void) sampleRate;
-  oscPhase1 = 0.0;
-  oscPhase2 = 0.0;
 }
 
 void DissonanceMeeter::initialiseGraph()
@@ -105,12 +95,28 @@ void DissonanceMeeter::connectAudioNodes()
   for (auto* node : mainProcessor->getNodes())
     node->getProcessor()->setPlayConfigDetails (numInputChannels, numOutputChannels, lastSampleRate, lastBlockSize);
 
-  // Stereo connections: Input -> BandPass -> Distortion -> Output
-  for (int ch = 0; ch < juce::jmin (2, numOutputChannels); ++ch)
+  // Remove all existing connections before rebuilding (prevents duplicates / stale layouts)
   {
-    mainProcessor->addConnection ({ { audioInputNode->nodeID,  ch }, { bandPassNode->nodeID,    ch } });
-    mainProcessor->addConnection ({ { bandPassNode->nodeID,    ch }, { distortionNode->nodeID,  ch } });
-    mainProcessor->addConnection ({ { distortionNode->nodeID,  ch }, { audioOutputNode->nodeID, ch } });
+    const auto connections = mainProcessor->getConnections();
+    for (const auto& c : connections)
+      mainProcessor->removeConnection (c);
+  }
+
+  // Connections: route from input into the processing chain, then fan out to all outputs.
+  // This avoids “silent output” on ASIO devices where the active output pair may not be 1/2.
+  const int numIn  = juce::jmax (1, numInputChannels);
+  const int numOut = juce::jmax (1, numOutputChannels);
+
+  for (int outCh = 0; outCh < numOut; ++outCh)
+  {
+    const int inCh = juce::jmin (outCh, numIn - 1); // duplicate last available input if needed
+
+    const bool c1 = mainProcessor->addConnection ({ { audioInputNode->nodeID,  inCh  }, { bandPassNode->nodeID,    outCh } });
+    const bool c2 = mainProcessor->addConnection ({ { bandPassNode->nodeID,    outCh }, { distortionNode->nodeID,  outCh } });
+    const bool c3 = mainProcessor->addConnection ({ { distortionNode->nodeID,  outCh }, { audioOutputNode->nodeID, outCh } });
+
+    if (! (c1 && c2 && c3))
+      DBG ("[DissonanceMeeter] Graph connection failed inCh=" + juce::String (inCh) + " outCh=" + juce::String (outCh));
   }
 
   for (auto* node : mainProcessor->getNodes())
@@ -123,76 +129,76 @@ void DissonanceMeeter::releaseResources()
     mainProcessor->releaseResources();
 }
 
-#ifndef JucePlugin_PreferredChannelConfigurations
 bool DissonanceMeeter::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-  // Support only mono or stereo symmetrical
-  if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
-      && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
-    return false;
+    auto mono = juce::AudioChannelSet::mono();
+    auto stereo = juce::AudioChannelSet::stereo();
 
-  if (layouts.getMainInputChannelSet() != layouts.getMainOutputChannelSet())
-    return false;
+    return (layouts.getMainInputChannelSet() == mono || layouts.getMainInputChannelSet() == stereo) &&
+        (layouts.getMainOutputChannelSet() == mono || layouts.getMainOutputChannelSet() == stereo);
 
-  return true;
 }
-#endif
 
 void DissonanceMeeter::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
   juce::ScopedNoDenormals noDenormals;
 
+  auto computeDbfs = [] (const juce::AudioBuffer<float>& b)
+  {
+    double sumSquares = 0.0;
+    const int numCh = b.getNumChannels();
+    const int numSamples = b.getNumSamples();
+    const int totalSamples = numCh * numSamples;
+
+    for (int ch = 0; ch < numCh; ++ch)
+    {
+      const float* d = b.getReadPointer (ch);
+      for (int i = 0; i < numSamples; ++i)
+        sumSquares += (double) d[i] * (double) d[i];
+    }
+
+    const float rms = totalSamples > 0 ? (float) std::sqrt (sumSquares / (double) totalSamples) : 0.0f;
+    return rms > 0.0f ? 20.0f * std::log10 (rms) : -100.0f;
+  };
+
+  const float inputDbfs = computeDbfs (buffer);
+  static int silentInputCounter = 0;
+  if (inputDbfs <= -99.0f)
+  {
+    if (++silentInputCounter == 60) // ~1s at 60 blocks/s-ish
+      DBG ("[DissonanceMeeter] Input appears silent (check standalone audio device input routing/enabled channels).");
+
+#if JUCE_DEBUG
+    // Diagnostic: if input is silent, generate an audible test tone BEFORE the processing graph.
+    // This helps distinguish input-routing issues from graph/output issues.
+    static double testPhase = 0.0;
+    const double sr = lastSampleRate > 0.0 ? lastSampleRate : 48000.0;
+    const double inc = juce::MathConstants<double>::twoPi * (250.0 / sr);
+    for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+    {
+      auto* d = buffer.getWritePointer (ch);
+      for (int i = 0; i < buffer.getNumSamples(); ++i)
+      {
+        d[i] = 0.1f * (float) std::sin (testPhase);
+        testPhase += inc;
+        if (testPhase > juce::MathConstants<double>::twoPi)
+          testPhase -= juce::MathConstants<double>::twoPi;
+      }
+    }
+#endif
+  }
+  else
+  {
+    silentInputCounter = 0;
+  }
+
   // Clear extra outputs if any
   for (int ch = getTotalNumInputChannels(); ch < getTotalNumOutputChannels(); ++ch)
     buffer.clear (ch,0, buffer.getNumSamples());
 
-  // If in ExternalInput mode, pass through main graph; otherwise generate internal oscillator signal
-  if (getInputMode() == InputMode::ExternalInput)
-  {
-    if (mainProcessor != nullptr)
-      mainProcessor->processBlock (buffer, midi);
-  }
-  else
-  {
-    // Oscillator mode: generate two-sine blend and write to all output channels
-    const int numSamples = buffer.getNumSamples();
-    const int numCh = buffer.getNumChannels();
-    const double sr = lastSampleRate >0.0 ? lastSampleRate :44100.0;
-    const float f1 = oscFreq1.load();
-    const float f2 = oscFreq2.load();
-    for (int ch =0; ch < numCh; ++ch)
-    {
-      float* data = buffer.getWritePointer (ch);
-      for (int i =0; i < numSamples; ++i)
-      {
-        const float s1 = static_cast<float> (std::sin (oscPhase1));
-        const float s2 = static_cast<float> (std::sin (oscPhase2));
-        data[i] =0.5f * s1 +0.5f * s2;
-        oscPhase1 += juce::MathConstants<double>::twoPi * (f1 / sr);
-        oscPhase2 += juce::MathConstants<double>::twoPi * (f2 / sr);
-        if (oscPhase1 > juce::MathConstants<double>::twoPi) oscPhase1 -= juce::MathConstants<double>::twoPi;
-        if (oscPhase2 > juce::MathConstants<double>::twoPi) oscPhase2 -= juce::MathConstants<double>::twoPi;
-      }
-    }
-  }
-
-  // If selected to use a single external channel, copy that channel to outputs
-  if (getInputMode() == InputMode::ExternalInput && getSelectedInputChannel() >=0)
-  {
-    const int sel = getSelectedInputChannel();
-    if (sel < buffer.getNumChannels())
-    {
-      // duplicate selected input channel into all outputs
-      const int samples = buffer.getNumSamples();
-      const float* src = buffer.getReadPointer (sel);
-      for (int ch =0; ch < buffer.getNumChannels(); ++ch)
-      {
-        if (ch == sel) continue;
-        float* dst = buffer.getWritePointer (ch);
-        std::memcpy (dst, src, (size_t) samples * sizeof (float));
-      }
-    }
-  }
+  // Process through main graph (Input -> BandPass -> Distortion -> Output)
+  if (mainProcessor != nullptr)
+    mainProcessor->processBlock (buffer, midi);
 
   waveForm.pushBuffer (buffer);
 
@@ -205,16 +211,7 @@ void DissonanceMeeter::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
   }
 
   // Compute RMS in dBFS across all channels for the block
-  double sumSquares =0.0;
-  int totalSamples = buffer.getNumSamples() * buffer.getNumChannels();
-  for (int ch =0; ch < buffer.getNumChannels(); ++ch)
-  {
-    const float* d = buffer.getReadPointer (ch);
-    for (int i =0; i < buffer.getNumSamples(); ++i)
-      sumSquares += (double)d[i] * (double)d[i];
-  }
-  float rms = totalSamples >0 ? (float) std::sqrt (sumSquares / (double) totalSamples) :0.0f;
-  float dbfs = rms >0.0f ?20.0f * std::log10 (rms) : -100.0f;
+  float dbfs = computeDbfs (buffer);
   updateOutputLevelRms (dbfs);
 }
 

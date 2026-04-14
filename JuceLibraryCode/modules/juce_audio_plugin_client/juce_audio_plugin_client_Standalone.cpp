@@ -82,6 +82,34 @@ public:
         appProperties.setStorageParameters (options);
     }
 
+    void initialise (const String&) override
+    {
+        // Create holder early so we can force a sensible default audio setup (input enabled)
+        auto holder = createPluginHolder();
+
+        if (auto* dm = holder != nullptr ? &(holder->deviceManager) : nullptr)
+        {
+            // Force-enable input channels by default (common reason for “silent input” in Standalone)
+            // 2 ins / 2 outs is a safe default for this project.
+            juce::String audioError = dm->initialise (2, 2, nullptr, true);
+            if (audioError.isNotEmpty())
+                DBG ("[DissonanceMeeter] AudioDeviceManager initialise error: " + audioError);
+        }
+
+        mainWindow = rawToUniquePtr (new StandaloneFilterWindow (getApplicationName(),
+                                                                 LookAndFeel::getDefaultLookAndFeel().findColour (ResizableWindow::backgroundColourId),
+                                                                 std::move (holder)));
+
+        if (mainWindow != nullptr)
+        {
+           #if JUCE_STANDALONE_FILTER_WINDOW_USE_KIOSK_MODE
+            Desktop::getInstance().setKioskModeComponent (mainWindow.get(), false);
+           #endif
+
+            mainWindow->setVisible (true);
+        }
+    }
+
     const String getApplicationName() override              { return CharPointer_UTF8 (JucePlugin_Name); }
     const String getApplicationVersion() override           { return JucePlugin_VersionString; }
     bool moreThanOneInstanceAllowed() override              { return true; }
@@ -118,31 +146,14 @@ public:
         const Array<StandalonePluginHolder::PluginInOuts> channelConfig;
        #endif
 
+        // NOTE: the second parameter (takeOwnershipOfSettings) is unrelated to audio I/O.
+        // We keep it as-is but rely on the holder to open audio input channels by default.
         return std::make_unique<StandalonePluginHolder> (appProperties.getUserSettings(),
                                                          false,
                                                          String{},
                                                          nullptr,
                                                          channelConfig,
                                                          autoOpenMidiDevices);
-    }
-
-    //==============================================================================
-    void initialise (const String&) override
-    {
-        mainWindow = rawToUniquePtr (createWindow());
-
-        if (mainWindow != nullptr)
-        {
-           #if JUCE_STANDALONE_FILTER_WINDOW_USE_KIOSK_MODE
-            Desktop::getInstance().setKioskModeComponent (mainWindow.get(), false);
-           #endif
-
-            mainWindow->setVisible (true);
-        }
-        else
-        {
-            pluginHolder = createPluginHolder();
-        }
     }
 
     void shutdown() override

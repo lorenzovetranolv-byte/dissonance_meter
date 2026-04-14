@@ -16,9 +16,25 @@ class ProcessorBase : public AudioProcessor
 public:
   //==============================================================================
   ProcessorBase()
-    : AudioProcessor(BusesProperties().withInput("Input", juce::AudioChannelSet::stereo())
-      .withOutput("Output", juce::AudioChannelSet::stereo()))
+    : AudioProcessor (BusesProperties()
+        .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
+        .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
   {}
+
+  bool isBusesLayoutSupported (const BusesLayout& layouts) const override
+  {
+    auto mono   = juce::AudioChannelSet::mono();
+    auto stereo = juce::AudioChannelSet::stereo();
+
+    // Support mono/stereo symmetric
+    if (! (layouts.getMainInputChannelSet() == mono || layouts.getMainInputChannelSet() == stereo))
+      return false;
+
+    if (! (layouts.getMainOutputChannelSet() == mono || layouts.getMainOutputChannelSet() == stereo))
+      return false;
+
+    return layouts.getMainInputChannelSet() == layouts.getMainOutputChannelSet();
+  }
 
   //==============================================================================
   void prepareToPlay(double, int) override {}
