@@ -4569,9 +4569,6 @@
     <ClInclude Include="..\..\JuceLibraryCode\modules\juce_audio_plugin_client\detail\juce_LinuxMessageThread.h">
       <Filter>JUCE Modules\juce_audio_plugin_client\detail</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\JuceLibraryCode\modules\juce_audio_plugin_client\detail\juce_PluginScaleFactorUtilities.h">
-      <Filter>JUCE Modules\juce_audio_plugin_client\detail</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\JuceLibraryCode\modules\juce_audio_plugin_client\detail\juce_PluginUtilities.h">
       <Filter>JUCE Modules\juce_audio_plugin_client\detail</Filter>
     </ClInclude>
@@ -5223,13 +5220,13 @@
     <ClInclude Include="..\..\JuceLibraryCode\modules\juce_audio_processors_headless\utilities\juce_AudioParameterInt.h">
       <Filter>JUCE Modules\juce_audio_processors_headless\utilities</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\JuceLibraryCode\modules\juce_audio_processors_headless\utilities\juce_AudioPluginExtensions.h">
-      <Filter>JUCE Modules\juce_audio_processors_headless\utilities</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\JuceLibraryCode\modules\juce_audio_processors_headless\utilities\juce_AudioProcessorParameterWithID.h">
       <Filter>JUCE Modules\juce_audio_processors_headless\utilities</Filter>
     </ClInclude>
     <ClInclude Include="..\..\JuceLibraryCode\modules\juce_audio_processors_headless\utilities\juce_CommonProcessorUtilities.h">
+      <Filter>JUCE Modules\juce_audio_processors_headless\utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\JuceLibraryCode\modules\juce_audio_processors_headless\utilities\juce_ExtensionsVisitor.h">
       <Filter>JUCE Modules\juce_audio_processors_headless\utilities</Filter>
     </ClInclude>
     <ClInclude Include="..\..\JuceLibraryCode\modules\juce_audio_processors_headless\utilities\juce_FlagCache.h">
@@ -7929,9 +7926,6 @@
     <ClInclude Include="..\..\JuceLibraryCode\modules\juce_gui_extra\juce_gui_extra.h">
       <Filter>JUCE Modules\juce_gui_extra</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\JuceLibraryCode\AppConfig.h">
-      <Filter>JUCE Library Code</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\JuceLibraryCode\JuceHeader.h">
       <Filter>JUCE Library Code</Filter>
     </ClInclude>
@@ -7990,9 +7984,6 @@
     </None>
     <None Include="..\..\JuceLibraryCode\modules\juce_audio_processors_headless\format_types\VST3_SDK\public.sdk\README.md">
       <Filter>JUCE Modules\juce_audio_processors_headless\format_types\VST3_SDK\public.sdk</Filter>
-    </None>
-    <None Include="..\..\JuceLibraryCode\modules\juce_audio_processors_headless\format_types\VST3_SDK\JUCE_README.md">
-      <Filter>JUCE Modules\juce_audio_processors_headless\format_types\VST3_SDK</Filter>
     </None>
     <None Include="..\..\JuceLibraryCode\modules\juce_audio_processors_headless\format_types\VST3_SDK\LICENSE.txt">
       <Filter>JUCE Modules\juce_audio_processors_headless\format_types\VST3_SDK</Filter>
