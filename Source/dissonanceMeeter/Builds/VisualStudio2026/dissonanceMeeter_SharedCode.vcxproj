@@ -1078,6 +1078,7 @@
     <ClCompile Include="..\..\JuceLibraryCode\modules\juce_audio_processors_headless\utilities\ARA\juce_AudioProcessor_ARAExtensions.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="..\..\..\..\ARA_SDK\ARA_Library\Utilities\ARAChannelFormat.cpp"/>
     <ClCompile Include="..\..\JuceLibraryCode\modules\juce_audio_processors_headless\utilities\juce_AAXClientExtensions.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>

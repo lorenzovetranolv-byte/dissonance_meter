@@ -154,6 +154,7 @@ if %ERRORLEVEL% equ 0 (
 :_arch_mismatch
 echo : Info: VST3 manifest generation is disabled for dissonanceMeeter because a AMD64 manifest helper cannot run on a host system processor detected to be $(PROCESSOR_ARCHITECTURE).
 :_continue
+exit /b 0
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -256,6 +257,7 @@ if %ERRORLEVEL% equ 0 (
 :_arch_mismatch
 echo : Info: VST3 manifest generation is disabled for dissonanceMeeter because a AMD64 manifest helper cannot run on a host system processor detected to be $(PROCESSOR_ARCHITECTURE).
 :_continue
+exit /b 0
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>

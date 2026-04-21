@@ -19,6 +19,8 @@
             resource="0" file="Source/PluginARAPlaybackRenderer.cpp"/>
       <FILE id="LaO8Gu" name="PluginARAPlaybackRenderer.h" compile="0" resource="0"
             file="Source/PluginARAPlaybackRenderer.h"/>
+      <FILE id="ARACh1" name="ARAChannelFormat.cpp" compile="1" resource="0"
+            file="../../ARA_SDK/ARA_Library/Utilities/ARAChannelFormat.cpp"/>
     </GROUP>
   </MAINGROUP>
   <MODULES>
