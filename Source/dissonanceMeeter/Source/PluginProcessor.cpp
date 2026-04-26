@@ -1,9 +1,9 @@
 /*
-  ==============================================================================
+	==============================================================================
 
-    This file contains the basic framework code for a JUCE plugin processor.
+		This file contains the basic framework code for a JUCE plugin processor.
 
-  ==============================================================================
+	==============================================================================
 */
 
 #include "PluginProcessor.h"
@@ -12,180 +12,264 @@
 //==============================================================================
 DissonanceMeeterAudioProcessor::DissonanceMeeterAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
-     : AudioProcessor (BusesProperties()
-                     #if ! JucePlugin_IsMidiEffect
-                      #if ! JucePlugin_IsSynth
-                       .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
-                      #endif
-                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-                     #endif
-                       )
+	: AudioProcessor(BusesProperties()
+#if ! JucePlugin_IsMidiEffect
+#if ! JucePlugin_IsSynth
+		.withInput("Input", juce::AudioChannelSet::stereo(), true)
+#endif
+		.withOutput("Output", juce::AudioChannelSet::stereo(), true)
+#endif
+	)
 #endif
 {
+	mainProcessor = std::make_unique<juce::AudioProcessorGraph>();
+	waveForm.setRepaintRate(30);
+	waveForm.setBufferSize(512);
+	waveForm.setSamplesPerBlock(256);
+	waveForm.setColours(juce::Colours::black, juce::Colours::lime);
+	initialiseGraph();
 }
 
 DissonanceMeeterAudioProcessor::~DissonanceMeeterAudioProcessor()
 {
+	if (mainProcessor != nullptr)
+		mainProcessor->releaseResources();
 }
 
 //==============================================================================
 const juce::String DissonanceMeeterAudioProcessor::getName() const
 {
-    return JucePlugin_Name;
+	return JucePlugin_Name;
 }
 
 bool DissonanceMeeterAudioProcessor::acceptsMidi() const
 {
-   #if JucePlugin_WantsMidiInput
-    return true;
-   #else
-    return false;
-   #endif
+#if JucePlugin_WantsMidiInput
+	return true;
+#else
+	return false;
+#endif
 }
 
 bool DissonanceMeeterAudioProcessor::producesMidi() const
 {
-   #if JucePlugin_ProducesMidiOutput
-    return true;
-   #else
-    return false;
-   #endif
+#if JucePlugin_ProducesMidiOutput
+	return true;
+#else
+	return false;
+#endif
 }
 
 bool DissonanceMeeterAudioProcessor::isMidiEffect() const
 {
-   #if JucePlugin_IsMidiEffect
-    return true;
-   #else
-    return false;
-   #endif
+#if JucePlugin_IsMidiEffect
+	return true;
+#else
+	return false;
+#endif
 }
 
 double DissonanceMeeterAudioProcessor::getTailLengthSeconds() const
 {
-    return 0.0;
+	return 0.0;
 }
 
 int DissonanceMeeterAudioProcessor::getNumPrograms()
 {
-    return 1;   // NB: some hosts don't cope very well if you tell them there are 0 programs,
-                // so this should be at least 1, even if you're not really implementing programs.
+	return 1;   // NB: some hosts don't cope very well if you tell them there are 0 programs,
+	// so this should be at least 1, even if you're not really implementing programs.
 }
 
 int DissonanceMeeterAudioProcessor::getCurrentProgram()
 {
-    return 0;
+	return 0;
 }
 
-void DissonanceMeeterAudioProcessor::setCurrentProgram (int index)
+void DissonanceMeeterAudioProcessor::setCurrentProgram(int index)
+{}
+
+const juce::String DissonanceMeeterAudioProcessor::getProgramName(int index)
 {
+	return {};
 }
 
-const juce::String DissonanceMeeterAudioProcessor::getProgramName (int index)
-{
-    return {};
-}
-
-void DissonanceMeeterAudioProcessor::changeProgramName (int index, const juce::String& newName)
-{
-}
+void DissonanceMeeterAudioProcessor::changeProgramName(int index, const juce::String& newName)
+{}
 
 //==============================================================================
-void DissonanceMeeterAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void DissonanceMeeterAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
-    // Use this method as the place to do any pre-playback
-    // initialisation that you need..
+	lastSampleRate = sampleRate;
+	lastBlockSize = samplesPerBlock;
+	numInputChannels = getMainBusNumInputChannels();
+	numOutputChannels = getMainBusNumOutputChannels();
+
+	mainProcessor->setPlayConfigDetails(numInputChannels, numOutputChannels, sampleRate, samplesPerBlock);
+
+	for (auto* node : mainProcessor->getNodes())
+		node->getProcessor()->setPlayConfigDetails(numInputChannels, numOutputChannels, sampleRate, samplesPerBlock);
+
+	mainProcessor->prepareToPlay(sampleRate, samplesPerBlock);
+	initialiseOscillator(sampleRate);
 }
 
 void DissonanceMeeterAudioProcessor::releaseResources()
 {
-    // When playback stops, you can use this as an opportunity to free up any
-    // spare memory, etc.
+	oscPhase1 = 0.0;
+	oscPhase2 = 0.0;
+	if (mainProcessor != nullptr)
+		mainProcessor->releaseResources();
 }
 
-#ifndef JucePlugin_PreferredChannelConfigurations
-bool DissonanceMeeterAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+void DissonanceMeeterAudioProcessor::initialiseGraph()
 {
-  #if JucePlugin_IsMidiEffect
-    juce::ignoreUnused (layouts);
-    return true;
-  #else
-    // This is the place where you check if the layout is supported.
-    // In this template code we only support mono or stereo.
-    // Some plugin hosts, such as certain GarageBand versions, will only
-    // load plugins that support stereo bus layouts.
-    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
-     && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
-        return false;
+	if (mainProcessor == nullptr)
+		mainProcessor = std::make_unique<juce::AudioProcessorGraph>();
 
-    // This checks if the input layout matches the output layout
-   #if ! JucePlugin_IsSynth
-    if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
-        return false;
-   #endif
+	if (audioInputNode == nullptr)
+		audioInputNode = mainProcessor->addNode(std::make_unique<AudioGraphIOProcessor>(AudioGraphIOProcessor::audioInputNode));
+	if (bandPassNode == nullptr)
+		bandPassNode = mainProcessor->addNode(std::make_unique<BandPassFilter>());
+	if (distortionNode == nullptr)
+		distortionNode = mainProcessor->addNode(std::make_unique<Distortion>());
+	if (audioOutputNode == nullptr)
+		audioOutputNode = mainProcessor->addNode(std::make_unique<AudioGraphIOProcessor>(AudioGraphIOProcessor::audioOutputNode));
 
-    return true;
-  #endif
+	connectAudioNodes();
+}
+
+void DissonanceMeeterAudioProcessor::connectAudioNodes()
+{
+	for (auto* node : mainProcessor->getNodes())
+		node->getProcessor()->setPlayConfigDetails(numInputChannels, numOutputChannels, lastSampleRate, lastBlockSize);
+
+	// Stereo: Input -> BandPass -> Distortion -> Output
+	for (int ch = 0; ch < juce::jmin(2, numOutputChannels); ++ch)
+	{
+		mainProcessor->addConnection({ { audioInputNode->nodeID,  ch }, { bandPassNode->nodeID,   ch } });
+		mainProcessor->addConnection({ { bandPassNode->nodeID,    ch }, { distortionNode->nodeID, ch } });
+		mainProcessor->addConnection({ { distortionNode->nodeID,  ch }, { audioOutputNode->nodeID,ch } });
+	}
+
+	for (auto* node : mainProcessor->getNodes())
+		node->getProcessor()->enableAllBuses();
+}
+
+
+#ifndef JucePlugin_PreferredChannelConfigurations
+bool DissonanceMeeterAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
+{
+#if JucePlugin_IsMidiEffect
+	juce::ignoreUnused(layouts);
+	return true;
+#else
+	// This is the place where you check if the layout is supported.
+	// In this template code we only support mono or stereo.
+	// Some plugin hosts, such as certain GarageBand versions, will only
+	// load plugins that support stereo bus layouts.
+	if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
+		&& layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+		return false;
+
+	// This checks if the input layout matches the output layout
+#if ! JucePlugin_IsSynth
+	if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
+		return false;
+#endif
+
+	return true;
+#endif
 }
 #endif
 
-void DissonanceMeeterAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
+void DissonanceMeeterAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-    juce::ScopedNoDenormals noDenormals;
-    auto totalNumInputChannels  = getTotalNumInputChannels();
-    auto totalNumOutputChannels = getTotalNumOutputChannels();
+	juce::ScopedNoDenormals noDenormals;
 
-    // In case we have more outputs than inputs, this code clears any output
-    // channels that didn't contain input data, (because these aren't
-    // guaranteed to be empty - they may contain garbage).
-    // This is here to avoid people getting screaming feedback
-    // when they first compile a plugin, but obviously you don't need to keep
-    // this code if your algorithm always overwrites all the output channels.
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
+	for (int ch = getTotalNumInputChannels(); ch < getTotalNumOutputChannels(); ++ch)
+		buffer.clear(ch, 0, buffer.getNumSamples());
 
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
-    {
-        auto* channelData = buffer.getWritePointer (channel);
+	if (getInputMode() == InputMode::ExternalInput)
+	{
+		if (mainProcessor != nullptr)
+			mainProcessor->processBlock(buffer, midiMessages);
+	}
+	else
+	{
+		// Modalità oscillatore: genera due sinusoidi miscelate
+		const int    numSamples = buffer.getNumSamples();
+		const int    numCh = buffer.getNumChannels();
+		const double sr = lastSampleRate > 0.0 ? lastSampleRate : 44100.0;
+		const float  f1 = oscFreq1.load();
+		const float  f2 = oscFreq2.load();
 
-        // ..do something to the data...
-    }
+		for (int ch = 0; ch < numCh; ++ch)
+		{
+			float* data = buffer.getWritePointer(ch);
+			for (int i = 0; i < numSamples; ++i)
+			{
+				data[i] = 0.5f * (float)std::sin(oscPhase1)
+					+ 0.5f * (float)std::sin(oscPhase2);
+				oscPhase1 += juce::MathConstants<double>::twoPi * (f1 / sr);
+				oscPhase2 += juce::MathConstants<double>::twoPi * (f2 / sr);
+				if (oscPhase1 > juce::MathConstants<double>::twoPi) oscPhase1 -= juce::MathConstants<double>::twoPi;
+				if (oscPhase2 > juce::MathConstants<double>::twoPi) oscPhase2 -= juce::MathConstants<double>::twoPi;
+			}
+		}
+	}
+
+	// Guadagno master
+	const float gain = juce::jlimit(0.0f, 4.0f, getOutputGain());
+	if (gain != 1.0f)
+		for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+			buffer.applyGain(ch, 0, buffer.getNumSamples(), gain);
+
+	// Calcolo RMS → dBFS per il meter principale
+	double sumSq = 0.0;
+	const int totalSamples = buffer.getNumSamples() * buffer.getNumChannels();
+	for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+	{
+		const float* d = buffer.getReadPointer(ch);
+		for (int i = 0; i < buffer.getNumSamples(); ++i)
+			sumSq += (double)d[i] * (double)d[i];
+	}
+	float rms = totalSamples > 0 ? (float)std::sqrt(sumSq / totalSamples) : 0.0f;
+	float dbfs = rms > 1e-9f ? 20.0f * std::log10(rms) : -100.0f;
+	updateOutputLevelRms(dbfs);
+
+	waveForm.pushBuffer(buffer);
 }
 
 //==============================================================================
 bool DissonanceMeeterAudioProcessor::hasEditor() const
 {
-    return true; // (change this to false if you choose to not supply an editor)
+	return true; // (change this to false if you choose to not supply an editor)
 }
 
 juce::AudioProcessorEditor* DissonanceMeeterAudioProcessor::createEditor()
 {
-    return new DissonanceMeeterAudioProcessorEditor (*this);
+	jassert(bandPassNode != nullptr && bandPassNode->getProcessor() != nullptr);
+	jassert(distortionNode != nullptr && distortionNode->getProcessor() != nullptr);
+	return new DissonanceMeeterAudioProcessorEditor(
+		*this,
+		static_cast<BandPassFilter&> (*bandPassNode->getProcessor()),
+		static_cast<Distortion&>     (*distortionNode->getProcessor()));
 }
 
 //==============================================================================
-void DissonanceMeeterAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+void DissonanceMeeterAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
+	juce::ignoreUnused(destData);
 }
 
-void DissonanceMeeterAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+void DissonanceMeeterAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
+	juce::ignoreUnused(data, sizeInBytes);
 }
 
 //==============================================================================
 // This creates new instances of the plugin..
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new DissonanceMeeterAudioProcessor();
+	return new DissonanceMeeterAudioProcessor();
 }
