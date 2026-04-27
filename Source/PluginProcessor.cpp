@@ -64,9 +64,15 @@ void DissonanceMeeter::prepareToPlay (double sampleRate, int samplesPerBlock)
   // Configure the outer graph and its child nodes with current runtime details
   mainProcessor->setPlayConfigDetails (numInputChannels, numOutputChannels, sampleRate, samplesPerBlock);
 
-  // Ensure play config for each internal processor reflects current host settings
-  for (auto* node : mainProcessor->getNodes())
-    node->getProcessor()->setPlayConfigDetails (numInputChannels, numOutputChannels, lastSampleRate, lastBlockSize);
+  // Rebuild connections to reflect actual channel count
+  mainProcessor->clear();
+  audioInputNode  = nullptr;
+  bandPassNode    = nullptr;
+  distortionNode  = nullptr;
+  audioOutputNode = nullptr;
+  initialiseGraph();
+
+  // Play config is already set correctly per-node inside connectAudioNodes()
 
   // Prepare the graph (this will prepare child nodes too)
   mainProcessor->prepareToPlay (sampleRate, samplesPerBlock);
@@ -101,16 +107,20 @@ void DissonanceMeeter::initialiseGraph()
 
 void DissonanceMeeter::connectAudioNodes()
 {
-  // Ensure play config for each internal processor
-  for (auto* node : mainProcessor->getNodes())
-    node->getProcessor()->setPlayConfigDetails (numInputChannels, numOutputChannels, lastSampleRate, lastBlockSize);
+  // IO nodes are asymmetric; internal processing nodes must be symmetric (out x out)
+  audioInputNode->getProcessor()->setPlayConfigDetails  (0,                numInputChannels,  lastSampleRate, lastBlockSize);
+  audioOutputNode->getProcessor()->setPlayConfigDetails (numOutputChannels, 0,                 lastSampleRate, lastBlockSize);
+  bandPassNode->getProcessor()->setPlayConfigDetails    (numOutputChannels, numOutputChannels, lastSampleRate, lastBlockSize);
+  distortionNode->getProcessor()->setPlayConfigDetails  (numOutputChannels, numOutputChannels, lastSampleRate, lastBlockSize);
 
-  // Stereo connections: Input -> BandPass -> Distortion -> Output
-  for (int ch = 0; ch < juce::jmin (2, numOutputChannels); ++ch)
+  // Connections: Input -> BandPass -> Distortion -> Output
+  // If input is mono but output is stereo, duplicate channel 0 to both outputs
+  for (int ch = 0; ch < numOutputChannels; ++ch)
   {
-    mainProcessor->addConnection ({ { audioInputNode->nodeID,  ch }, { bandPassNode->nodeID,    ch } });
-    mainProcessor->addConnection ({ { bandPassNode->nodeID,    ch }, { distortionNode->nodeID,  ch } });
-    mainProcessor->addConnection ({ { distortionNode->nodeID,  ch }, { audioOutputNode->nodeID, ch } });
+    const int srcCh = juce::jmin (ch, numInputChannels - 1);
+    mainProcessor->addConnection ({ { audioInputNode->nodeID,  srcCh }, { bandPassNode->nodeID,    ch } });
+    mainProcessor->addConnection ({ { bandPassNode->nodeID,    ch    }, { distortionNode->nodeID,  ch } });
+    mainProcessor->addConnection ({ { distortionNode->nodeID,  ch    }, { audioOutputNode->nodeID, ch } });
   }
 
   for (auto* node : mainProcessor->getNodes())
@@ -126,12 +136,15 @@ void DissonanceMeeter::releaseResources()
 #ifndef JucePlugin_PreferredChannelConfigurations
 bool DissonanceMeeter::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-  // Support only mono or stereo symmetrical
+  // Output must be mono or stereo
   if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
       && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
     return false;
 
-  if (layouts.getMainInputChannelSet() != layouts.getMainOutputChannelSet())
+  // Input must be mono or stereo (can differ from output, or be disabled)
+  if (layouts.getMainInputChannelSet() != juce::AudioChannelSet::mono()
+      && layouts.getMainInputChannelSet() != juce::AudioChannelSet::stereo()
+      && !layouts.getMainInputChannelSet().isDisabled())
     return false;
 
   return true;

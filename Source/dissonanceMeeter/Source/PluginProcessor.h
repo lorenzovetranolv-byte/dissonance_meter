@@ -28,6 +28,9 @@ public:
 																	1 }; // mono dopo il channel sum
 		minFreqSmooth.reset(sampleRate, 0.02);
 		maxFreqSmooth.reset(sampleRate, 0.02);
+		// Imposta i target dagli attuali valori dei parametri prima di calcolare i coefficienti
+		minFreqSmooth.setTargetValue(*treeState.getRawParameterValue("MIN_FREQ"));
+		maxFreqSmooth.setTargetValue(*treeState.getRawParameterValue("MAX_FREQ"));
 		updateCoefficients();
 		filter.prepare(spec);
 		monoBuffer.setSize(1, samplesPerBlock);
@@ -306,8 +309,6 @@ public:
 	void setInputMode(InputMode m) noexcept { inputMode.store((int)m); }
 	InputMode getInputMode() const noexcept { return static_cast<InputMode> (inputMode.load()); }
 
-	void setSelectedInputChannel(int ch) noexcept { selectedInputChannel.store(ch); }
-	int  getSelectedInputChannel() const noexcept { return selectedInputChannel.load(); }
 
 	void setOscillatorFrequencies(float f1, float f2) noexcept { oscFreq1.store(f1); oscFreq2.store(f2); }
 	std::pair<float, float> getOscillatorFrequencies() const noexcept { return { oscFreq1.load(), oscFreq2.load() }; }
@@ -339,7 +340,6 @@ private:
 	juce::AudioProcessorGraph::Node::Ptr audioOutputNode;
 
 	std::atomic<int>   inputMode{ 0 };
-	std::atomic<int>   selectedInputChannel{ 0 };
 	std::atomic<float> oscFreq1{ 150.0f };
 	std::atomic<float> oscFreq2{ 220.0f };
 	double oscPhase1 = 0.0;

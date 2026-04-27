@@ -22,7 +22,7 @@ public:
   void prepareToPlay (double sampleRate, int samplesPerBlock) override
   {
     currentSampleRate = static_cast<float>(sampleRate);
-    juce::dsp::ProcessSpec spec { sampleRate, static_cast<juce::uint32> (samplesPerBlock), 2 };
+    juce::dsp::ProcessSpec spec { sampleRate, static_cast<juce::uint32> (samplesPerBlock), static_cast<juce::uint32> (juce::jmax (1, getTotalNumOutputChannels())) };
     frequency.reset (sampleRate, 0.02); // 20ms smoothing
     q.reset         (sampleRate, 0.02);
     updateCoefficients();

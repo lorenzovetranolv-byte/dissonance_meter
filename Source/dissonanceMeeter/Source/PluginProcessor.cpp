@@ -209,9 +209,9 @@ void DissonanceMeeterAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
 		const float  f1 = oscFreq1.load();
 		const float  f2 = oscFreq2.load();
 
-		for (int ch = 0; ch < numCh; ++ch)
+		// Genera i campioni sul canale 0 avanzando la fase una sola volta per campione
 		{
-			float* data = buffer.getWritePointer(ch);
+			float* data = buffer.getWritePointer(0);
 			for (int i = 0; i < numSamples; ++i)
 			{
 				data[i] = 0.5f * (float)std::sin(oscPhase1)
@@ -222,6 +222,13 @@ void DissonanceMeeterAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
 				if (oscPhase2 > juce::MathConstants<double>::twoPi) oscPhase2 -= juce::MathConstants<double>::twoPi;
 			}
 		}
+		// Copia il segnale generato sugli altri canali
+		for (int ch = 1; ch < numCh; ++ch)
+			buffer.copyFrom(ch, 0, buffer, 0, 0, numSamples);
+
+		// Applica la catena BandPass → Distortion anche all'oscillatore
+		if (mainProcessor != nullptr)
+			mainProcessor->processBlock(buffer, midiMessages);
 	}
 
 	// Guadagno master
