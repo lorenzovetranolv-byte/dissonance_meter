@@ -160,13 +160,12 @@ public:
 	void prepareToPlay(double sampleRate, int samplesPerBlock) override
 	{
 		currentSampleRate = static_cast<float> (sampleRate);
-		drive.reset(sampleRate, 0.02); // smoothing 20 ms sul parametro A
+		drive.reset(sampleRate, 0.02);
 		(void)samplesPerBlock;
 
-		const int channels = getTotalNumOutputChannels();
-		// Pre-alloca stati per ogni canale (nessuna allocazione nel loop audio)
-		xState.assign(channels, 0.0f);  // x(t)
-		xPrimeState.assign(channels, 0.0f);  // x'(t)
+		const int channels = juce::jmax(1, getTotalNumOutputChannels());
+		xState.assign(channels, 0.0f);
+		xPrimeState.assign(channels, 0.0f);
 	}
 
 	void processBlock(juce::AudioSampleBuffer& buffer, juce::MidiBuffer&) override

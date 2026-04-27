@@ -104,6 +104,12 @@ void DissonanceMeeterAudioProcessor::prepareToPlay(double sampleRate, int sample
 	numInputChannels = getMainBusNumInputChannels();
 	numOutputChannels = getMainBusNumOutputChannels();
 
+	// Rimuove solo le connessioni e le ricrea con il layout canali corretto,
+	// senza distruggere i nodi (l'editor potrebbe tenere riferimenti ai processor)
+	for (auto& c : mainProcessor->getConnections())
+		mainProcessor->removeConnection(c);
+	connectAudioNodes();
+
 	mainProcessor->setPlayConfigDetails(numInputChannels, numOutputChannels, sampleRate, samplesPerBlock);
 
 	for (auto* node : mainProcessor->getNodes())
@@ -133,11 +139,11 @@ void DissonanceMeeterAudioProcessor::initialiseGraph()
 		mainProcessor = std::make_unique<juce::AudioProcessorGraph>();
 
 	if (audioInputNode == nullptr)
-		audioInputNode = mainProcessor->addNode(std::make_unique<AudioGraphIOProcessor>(AudioGraphIOProcessor::audioInputNode));
+		audioInputNode  = mainProcessor->addNode(std::make_unique<AudioGraphIOProcessor>(AudioGraphIOProcessor::audioInputNode));
 	if (bandPassNode == nullptr)
-		bandPassNode = mainProcessor->addNode(std::make_unique<BandPassFilter>());
+		bandPassNode    = mainProcessor->addNode(std::make_unique<BandPassFilter>());
 	if (distortionNode == nullptr)
-		distortionNode = mainProcessor->addNode(std::make_unique<Distortion>());
+		distortionNode  = mainProcessor->addNode(std::make_unique<Distortion>());
 	if (audioOutputNode == nullptr)
 		audioOutputNode = mainProcessor->addNode(std::make_unique<AudioGraphIOProcessor>(AudioGraphIOProcessor::audioOutputNode));
 
