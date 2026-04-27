@@ -39,4 +39,21 @@ public:
   int getNumPrograms() override { return 0; }
   int getCurrentProgram() override { return 0; }
   void setCurrentProgram(int) override {}
+  const juce::String getProgramName(int) override { return {}; }
+  void changeProgramName(int, const juce::String&) override {}
+
+  //==============================================================================
+  void getStateInformation(juce::MemoryBlock&) override {}
+  void setStateInformation(const void*, int) override {}
+
+  //==============================================================================
+  bool isBusesLayoutSupported(const BusesLayout& layouts) const override
+  {
+    return layouts.getMainInputChannelSet() == layouts.getMainOutputChannelSet()
+        && (layouts.getMainOutputChannelSet() == juce::AudioChannelSet::mono()
+         || layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo());
+  }
+
+private:
+  JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ProcessorBase)
 };

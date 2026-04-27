@@ -121,6 +121,12 @@ void DissonanceMeeterAudioProcessor::releaseResources()
 		mainProcessor->releaseResources();
 }
 
+void DissonanceMeeterAudioProcessor::initialiseOscillator(double /*sampleRate*/) noexcept
+{
+	oscPhase1 = 0.0;
+	oscPhase2 = 0.0;
+}
+
 void DissonanceMeeterAudioProcessor::initialiseGraph()
 {
 	if (mainProcessor == nullptr)
