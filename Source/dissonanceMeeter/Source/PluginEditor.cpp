@@ -128,7 +128,7 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 	addAndMakeVisible(masterGainLabel);
 	addAndMakeVisible(audioProcessor.waveForm);
 
-	setSize(700, 460);
+	setSize(1000, 460);
 	setOpaque(true);
 	startTimerHz(30);
 }
@@ -267,7 +267,6 @@ void DissonanceMeeterAudioProcessorEditor::resized()
 		getHeight() - waveTop - pad);
 
 }
-
 void DissonanceMeeterAudioProcessorEditor::timerCallback()
 {
 	repaint();

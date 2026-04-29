@@ -224,6 +224,8 @@ public:
   // called from prepareToPlay
   void initialiseOscillator (double sampleRate) noexcept;
 
+  void updateMeter(const juce::AudioBuffer<float>& buffer);
+
 private:
   void initialiseGraph();
   void connectAudioNodes();

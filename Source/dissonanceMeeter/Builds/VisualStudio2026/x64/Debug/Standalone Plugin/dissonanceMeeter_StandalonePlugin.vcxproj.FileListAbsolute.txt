@@ -1,1 +1,2 @@
 C:\Users\lvetrano\Workspace\DOCUMENTI PERSONALI\TESI\dissonance_meter\Source\dissonanceMeeter\Builds\VisualStudio2026\x64\Debug\Standalone Plugin\dissonanceMeeter.exe
+D:\Progetti Visual Studio\dissonance_meter\Source\dissonanceMeeter\Builds\VisualStudio2026\x64\Debug\Standalone Plugin\dissonanceMeeter.exe

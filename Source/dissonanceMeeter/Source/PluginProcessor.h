@@ -25,7 +25,8 @@ public:
 		currentSampleRate = static_cast<float> (sampleRate);
 		juce::dsp::ProcessSpec spec{ sampleRate,
 																	static_cast<juce::uint32> (samplesPerBlock),
-																	1 }; // mono dopo il channel sum
+																	static_cast<juce::uint32> (getNumInputChannels()) };
+
 		minFreqSmooth.reset(sampleRate, 0.02);
 		maxFreqSmooth.reset(sampleRate, 0.02);
 		// Imposta i target dagli attuali valori dei parametri prima di calcolare i coefficienti
@@ -264,6 +265,7 @@ public:
 
 	using AudioGraphIOProcessor = juce::AudioProcessorGraph::AudioGraphIOProcessor;
 	using Node = juce::AudioProcessorGraph::Node;
+
 	//==============================================================================
 	DissonanceMeeterAudioProcessor();
 	~DissonanceMeeterAudioProcessor() override;
@@ -272,9 +274,7 @@ public:
 	void prepareToPlay(double sampleRate, int samplesPerBlock) override;
 	void releaseResources() override;
 
-#ifndef JucePlugin_PreferredChannelConfigurations
 	bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
-#endif
 
 	void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
