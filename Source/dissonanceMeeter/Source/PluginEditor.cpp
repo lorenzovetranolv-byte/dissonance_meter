@@ -113,7 +113,7 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 	setupLabel(masterGainLabel, "Master Gain");
 
 	// --- Waveform ---
-	audioProcessor.waveForm.setColours(Colours::black, Colours::white);
+	audioProcessor.getWaveForm().setColours(Colours::black, Colours::white);
 
 	// --- AddAndMakeVisible ---
 	addAndMakeVisible(modeSelector);
@@ -126,7 +126,7 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 	addAndMakeVisible(oscFreq2Minus);  addAndMakeVisible(oscFreq2Plus);
 	addAndMakeVisible(masterGainSlider);
 	addAndMakeVisible(masterGainLabel);
-	addAndMakeVisible(audioProcessor.waveForm);
+	addAndMakeVisible(audioProcessor.getWaveForm());
 
 	setSize(1000, 460);
 	setOpaque(true);
@@ -134,7 +134,8 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 }
 
 DissonanceMeeterAudioProcessorEditor::~DissonanceMeeterAudioProcessorEditor()
-{}
+{
+}
 
 //==============================================================================
 void DissonanceMeeterAudioProcessorEditor::paint(juce::Graphics& g)
@@ -262,7 +263,7 @@ void DissonanceMeeterAudioProcessorEditor::resized()
 
 	// Waveform in basso
 	const int waveTop = row3Y + 24 + 2 * pad;
-	audioProcessor.waveForm.setBounds(contentLeft, waveTop,
+	audioProcessor.getWaveForm().setBounds(contentLeft, waveTop,
 		getWidth() - contentLeft - pad,
 		getHeight() - waveTop - pad);
 

@@ -17,11 +17,10 @@ public:
 	//==============================================================================
 	ProcessorBase()
 		: juce::AudioProcessor(BusesProperties()
-			.withInput("Input", juce::AudioChannelSet::stereo())
-			.withInput("Input", juce::AudioChannelSet::mono())
-			.withOutput("Output", juce::AudioChannelSet::stereo())
-			.withOutput("Output", juce::AudioChannelSet::mono()))
-	{}
+			.withInput("Input", juce::AudioChannelSet::stereo(), true)
+			.withOutput("Output", juce::AudioChannelSet::stereo(), true))
+	{
+	}
 
 	//==============================================================================
 	void prepareToPlay(double, int) override {}

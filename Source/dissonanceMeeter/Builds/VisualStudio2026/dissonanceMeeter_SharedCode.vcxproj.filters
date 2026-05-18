@@ -7779,9 +7779,6 @@
     <ClInclude Include="..\..\JuceLibraryCode\JucePluginDefines.h">
       <Filter>JUCE Library Code</Filter>
     </ClInclude>
-    <ClInclude Include="Source\ProcessorBase.h">
-      <Filter>dissonanceMeeter\Source</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\JuceLibraryCode\modules\juce_audio_devices\native\asio\LICENSE.txt">

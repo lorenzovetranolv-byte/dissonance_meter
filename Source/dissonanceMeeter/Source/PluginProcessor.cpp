@@ -11,7 +11,6 @@
 
 //==============================================================================
 DissonanceMeeterAudioProcessor::DissonanceMeeterAudioProcessor()
-#ifndef JucePlugin_PreferredChannelConfigurations
 	: AudioProcessor(BusesProperties()
 #if ! JucePlugin_IsMidiEffect
 #if ! JucePlugin_IsSynth
@@ -20,7 +19,6 @@ DissonanceMeeterAudioProcessor::DissonanceMeeterAudioProcessor()
 		.withOutput("Output", juce::AudioChannelSet::stereo(), true)
 #endif
 	)
-#endif
 {
 	mainProcessor = std::make_unique<juce::AudioProcessorGraph>();
 	waveForm.setRepaintRate(30);
@@ -86,7 +84,8 @@ int DissonanceMeeterAudioProcessor::getCurrentProgram()
 }
 
 void DissonanceMeeterAudioProcessor::setCurrentProgram(int index)
-{}
+{
+}
 
 const juce::String DissonanceMeeterAudioProcessor::getProgramName(int index)
 {
@@ -94,13 +93,13 @@ const juce::String DissonanceMeeterAudioProcessor::getProgramName(int index)
 }
 
 void DissonanceMeeterAudioProcessor::changeProgramName(int index, const juce::String& newName)
-{}
+{
+}
 
 //==============================================================================
 void DissonanceMeeterAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
 	lastSampleRate = sampleRate;
-	lastBlockSize = samplesPerBlock;
 	numInputChannels = getMainBusNumInputChannels();
 	numOutputChannels = getMainBusNumOutputChannels();
 
@@ -108,15 +107,13 @@ void DissonanceMeeterAudioProcessor::prepareToPlay(double sampleRate, int sample
 	// senza distruggere i nodi (l'editor potrebbe tenere riferimenti ai processor)
 	for (auto& c : mainProcessor->getConnections())
 		mainProcessor->removeConnection(c);
+
 	connectAudioNodes();
 
 	mainProcessor->setPlayConfigDetails(numInputChannels, numOutputChannels, sampleRate, samplesPerBlock);
-
-	for (auto* node : mainProcessor->getNodes())
-		node->getProcessor()->setPlayConfigDetails(numInputChannels, numOutputChannels, sampleRate, samplesPerBlock);
-
 	mainProcessor->prepareToPlay(sampleRate, samplesPerBlock);
-	initialiseOscillator(sampleRate);
+
+	initialiseOscillator();
 }
 
 void DissonanceMeeterAudioProcessor::releaseResources()
@@ -127,7 +124,7 @@ void DissonanceMeeterAudioProcessor::releaseResources()
 		mainProcessor->releaseResources();
 }
 
-void DissonanceMeeterAudioProcessor::initialiseOscillator(double /*sampleRate*/) noexcept
+void DissonanceMeeterAudioProcessor::initialiseOscillator() noexcept
 {
 	oscPhase1 = 0.0;
 	oscPhase2 = 0.0;
@@ -139,21 +136,19 @@ void DissonanceMeeterAudioProcessor::initialiseGraph()
 		mainProcessor = std::make_unique<juce::AudioProcessorGraph>();
 
 	if (audioInputNode == nullptr)
-		audioInputNode  = mainProcessor->addNode(std::make_unique<AudioGraphIOProcessor>(AudioGraphIOProcessor::audioInputNode));
+		audioInputNode = mainProcessor->addNode(std::make_unique<AudioGraphIOProcessor>(AudioGraphIOProcessor::audioInputNode));
 	if (bandPassNode == nullptr)
-		bandPassNode    = mainProcessor->addNode(std::make_unique<BandPassFilter>());
+		bandPassNode = mainProcessor->addNode(std::make_unique<BandPassFilter>());
 	if (distortionNode == nullptr)
-		distortionNode  = mainProcessor->addNode(std::make_unique<Distortion>());
+		distortionNode = mainProcessor->addNode(std::make_unique<Distortion>());
 	if (audioOutputNode == nullptr)
 		audioOutputNode = mainProcessor->addNode(std::make_unique<AudioGraphIOProcessor>(AudioGraphIOProcessor::audioOutputNode));
-
-	connectAudioNodes();
 }
 
 void DissonanceMeeterAudioProcessor::connectAudioNodes()
 {
 	for (auto* node : mainProcessor->getNodes())
-		node->getProcessor()->setPlayConfigDetails(numInputChannels, numOutputChannels, lastSampleRate, lastBlockSize);
+		node->getProcessor()->enableAllBuses();
 
 	// Stereo: Input -> BandPass -> Distortion -> Output
 	for (int ch = 0; ch < juce::jmin(2, numOutputChannels); ++ch)
@@ -163,8 +158,6 @@ void DissonanceMeeterAudioProcessor::connectAudioNodes()
 		mainProcessor->addConnection({ { distortionNode->nodeID,  ch }, { audioOutputNode->nodeID,ch } });
 	}
 
-	for (auto* node : mainProcessor->getNodes())
-		node->getProcessor()->enableAllBuses();
 }
 
 
@@ -278,12 +271,52 @@ juce::AudioProcessorEditor* DissonanceMeeterAudioProcessor::createEditor()
 //==============================================================================
 void DissonanceMeeterAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
-	juce::ignoreUnused(destData);
+	// Recupera i processor dai nodi
+	auto* bp = dynamic_cast<BandPassFilter*>(bandPassNode->getProcessor());
+	auto* dist = dynamic_cast<Distortion*>(distortionNode->getProcessor());
+
+	if (bp == nullptr || dist == nullptr)
+		return;
+
+	// Crea un XML radice che contiene lo stato di entrambi
+	juce::XmlElement root("DissonanceMeeterState");
+
+	// Salva BandPassFilter
+	if (auto xmlBP = bp->treeState.copyState().createXml())
+	{
+		xmlBP->setTagName("BandPass");
+		root.addChildElement(xmlBP.release());
+	}
+
+	// Salva Distortion
+	if (auto xmlDist = dist->treeState.copyState().createXml())
+	{
+		xmlDist->setTagName("Distortion");
+		root.addChildElement(xmlDist.release());
+	}
+
+	copyXmlToBinary(root, destData);
 }
 
 void DissonanceMeeterAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
-	juce::ignoreUnused(data, sizeInBytes);
+	auto* bp = dynamic_cast<BandPassFilter*>(bandPassNode->getProcessor());
+	auto* dist = dynamic_cast<Distortion*>(distortionNode->getProcessor());
+
+	if (bp == nullptr || dist == nullptr)
+		return;
+
+	// Legge l'XML salvato
+	if (auto xmlState = getXmlFromBinary(data, sizeInBytes))
+	{
+		// Ripristina BandPassFilter
+		if (auto* xmlBP = xmlState->getChildByName("BandPass"))
+			bp->treeState.replaceState(juce::ValueTree::fromXml(*xmlBP));
+
+		// Ripristina Distortion
+		if (auto* xmlDist = xmlState->getChildByName("Distortion"))
+			dist->treeState.replaceState(juce::ValueTree::fromXml(*xmlDist));
+	}
 }
 
 //==============================================================================
