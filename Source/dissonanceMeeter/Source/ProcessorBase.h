@@ -18,7 +18,9 @@ public:
 	ProcessorBase()
 		: juce::AudioProcessor(BusesProperties()
 			.withInput("Input", juce::AudioChannelSet::stereo())
-			.withOutput("Output", juce::AudioChannelSet::stereo()))
+			.withInput("Input", juce::AudioChannelSet::mono())
+			.withOutput("Output", juce::AudioChannelSet::stereo())
+			.withOutput("Output", juce::AudioChannelSet::mono()))
 	{}
 
 	//==============================================================================
@@ -50,7 +52,6 @@ public:
 	//==============================================================================
 	bool isBusesLayoutSupported(const BusesLayout& layouts) const override
 	{
-		// Supporta solo layout stereo (2 canali in input e output)
 		if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo()
 			&& layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono())
 			return false;
