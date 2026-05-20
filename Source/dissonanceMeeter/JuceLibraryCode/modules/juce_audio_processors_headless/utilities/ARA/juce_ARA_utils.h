@@ -40,7 +40,7 @@ JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wgnu-zero-variadic-macro-arguments",
                                      "-Wfloat-equal")
 JUCE_BEGIN_IGNORE_WARNINGS_MSVC (6387)
 
-//#include <ARA_Library/PlugIn/ARAPlug.h>
+#include <ARA_Library/PlugIn/ARAPlug.h>
 
 JUCE_END_IGNORE_WARNINGS_GCC_LIKE
 JUCE_END_IGNORE_WARNINGS_MSVC

@@ -61,7 +61,7 @@
 #pragma once
 #define JUCE_AUDIO_PROCESSORS_H_INCLUDED
 
-//#include <juce_audio_processors_headless/juce_audio_processors_headless.h>
+#include <juce_audio_processors_headless/juce_audio_processors_headless.h>
 #include <juce_gui_extra/juce_gui_extra.h>
 
 //==============================================================================

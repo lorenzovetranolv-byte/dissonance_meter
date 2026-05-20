@@ -72,7 +72,7 @@ JUCE_API void JUCE_CALLTYPE handleARAAssertion (const char* file, const int line
 } // namespace juce
 
 JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wgnu-zero-variadic-macro-arguments", "-Wmissing-prototypes")
- //#include <ARA_Library/Debug/ARADebug.h>
+ #include <ARA_Library/Debug/ARADebug.h>
 JUCE_END_IGNORE_WARNINGS_GCC_LIKE
 
 #endif
