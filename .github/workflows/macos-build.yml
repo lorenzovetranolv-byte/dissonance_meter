@@ -19,7 +19,7 @@ jobs:
 
       - name: Build Audio Unit with Xcode
         run: |
-          cd Builds/MacOSX
+          cd Source/dissonanceMeeter/Builds/MacOSX
           xcodebuild -project DissonanceMeeter.xcodeproj -configuration Release -arch x86_64
 
       - name: Upload AU component
