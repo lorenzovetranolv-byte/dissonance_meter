@@ -38,7 +38,7 @@
  #define JucePlugin_Enable_IAA             0
 #endif
 #ifndef  JucePlugin_Enable_ARA
- #define JucePlugin_Enable_ARA             0
+ #define JucePlugin_Enable_ARA             1
 #endif
 #ifndef  JucePlugin_Name
  #define JucePlugin_Name                   "dissonanceMeeter"
