@@ -191,10 +191,11 @@ public:
 
 		const int numChannels = buffer.getNumChannels();
 		const int numSamples = buffer.getNumSamples();
-		// dt = 1 / sampleRate, calcolato una volta per blocco
 		const float dt = currentSampleRate > 0.0f ? (1.0f / currentSampleRate) : 0.0f;
 
-		// Ridimensiona stati senza allocare nel hot path se il layout cambia
+		const float inputScale = currentSampleRate * currentSampleRate * 0.1f;
+		const float outputScale = 1.0f / (inputScale * dt * dt + 1e-9f);
+
 		if ((int)xState.size() < numChannels)
 		{
 			xState.resize(numChannels, 0.0f);
@@ -203,38 +204,35 @@ public:
 
 		for (int i = 0; i < numSamples; ++i)
 		{
-
 			const float A = drive.getNextValue();
 
 			for (int ch = 0; ch < numChannels; ++ch)
 			{
 				float* data = buffer.getWritePointer(ch);
-				float& x = xState[ch];       // stato: posizione
-				float& dx = xPrimeState[ch];  // stato: velocità
-				const float in = data[i];
+				float& x = xState[ch];
+				float& dx = xPrimeState[ch];
+				const float in = data[i] * inputScale;
 
-				// --- Euler semi-implicito (Euler-Cromer) ---
+				// --- Euler esplicito (fedele alla specifica) ---
+				// x''(t) = f(t) - 60·x'(t-1) - 900·x(t-1) - A·x(t-1)²
 
-				// 1. Calcola accelerazione con gli stati CORRENTI
-				//    x'' = f(t) - 60*x' - 900*x - A*x^2
+				// 1. Calcola x'' con gli stati del passo PRECEDENTE
 				const float ddx = in
 					- 60.0f * dx
 					- 900.0f * x
 					- A * (x * x);
 
-				// 2. Aggiorna la velocità: x'(n+1) = x'(n) + x''(n) * dt
-				dx += ddx * dt;
+				// 2. e 3. Aggiorna usando i valori VECCHI (variabili temporanee)
+				const float x_new = x + dx * dt;  // usa dx(t-1)
+				const float dx_new = dx + ddx * dt;  // usa ddx(t-1)
 
-				// 3. Aggiorna la posizione usando la NUOVA velocità (semi-implicito):
-				//    x(n+1) = x(n) + x'(n+1) * dt
-				x += dx * dt;
+				x = x_new;
+				dx = juce::jlimit(-500.0f * inputScale, 500.0f * inputScale, dx_new);
 
-				// --- Soft saturation per stabilità numerica ---
-				// Applica tanh come saturatore morbido prima del hard clamp
-				x = std::tanh(x * 0.5f) * 2.0f;  // soft clip su ±~2
-				dx = juce::jlimit(-500.0f, 500.0f, dx);
-
-				data[i] = x;
+				// Output: solo lettura di x, nessuna modifica allo stato
+				float out = x * outputScale;
+				out = std::tanh(out * 0.5f) * 2.0f;
+				data[i] = juce::jlimit(-1.0f, 1.0f, out);
 			}
 		}
 	}
