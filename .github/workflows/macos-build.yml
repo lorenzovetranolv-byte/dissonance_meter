@@ -23,10 +23,7 @@ jobs:
       - name: Build Audio Unit with Xcode
         run: |
           cd Source/dissonanceMeeter/Builds/MacOSX
-          xcodebuild -project DissonanceMeeter.xcodeproj \
-                     -configuration Release \
-                     -arch x86_64 \
-                     HEADER_SEARCH_PATHS="$(pwd)/../../../ARA_SDK"
+          xcodebuild -project dissonanceMeeter.xcodeproj -configuration Release -arch x86_64
 
       - name: Upload AU component
         uses: actions/upload-artifact@v4
