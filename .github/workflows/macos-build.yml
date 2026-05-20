@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.1.0
+        with:
+          submodules: recursive        # ← inizializza tutti i submodule
 
       - name: Build Audio Unit with Xcode
         run: |
