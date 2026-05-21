@@ -131,4 +131,14 @@ __pycache__/
 # Lock / state files
 *.lock
 
+# Visual Studio / MSBuild build output folders -------
+# These are regenerated on every build and contain absolute paths
+Source/dissonanceMeeter/Builds/VisualStudio2026/x64/
+
+# MSBuild intermediate artefacts (absolute paths inside, change every build)
+*.FileListAbsolute.txt
+*.recipe
+*.exp
+*.tlog/
+
 # End of file
