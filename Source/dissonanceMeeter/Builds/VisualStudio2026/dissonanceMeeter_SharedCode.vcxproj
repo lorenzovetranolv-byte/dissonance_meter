@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 
 <Project DefaultTargets="Build"
          ToolsVersion="18.0"
@@ -146,6 +146,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\Source\PluginProcessor.cpp"/>
     <ClCompile Include="..\..\Source\PluginEditor.cpp"/>
+    <ClCompile Include="..\..\Source\PluginTests.cpp"/>
     <ClCompile Include="..\..\Source\PluginARADocumentController.cpp"/>
     <ClCompile Include="..\..\Source\PluginARAPlaybackRenderer.cpp"/>
     <ClCompile Include="..\..\..\..\ARA_SDK\ARA_Library\Utilities\ARAChannelFormat.cpp"/>
@@ -4424,3 +4425,4 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets"/>
 </Project>
+
