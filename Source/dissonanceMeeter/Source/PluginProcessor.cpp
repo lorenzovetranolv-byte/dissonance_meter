@@ -9,6 +9,10 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#if defined(JUCE_DEBUG) || defined(DEBUG)
+  #include "PluginTests.cpp"
+#endif
+
 //==============================================================================
 DissonanceMeeterAudioProcessor::DissonanceMeeterAudioProcessor()
 	: AudioProcessor(BusesProperties()
@@ -26,6 +30,22 @@ DissonanceMeeterAudioProcessor::DissonanceMeeterAudioProcessor()
 	waveForm.setSamplesPerBlock(256);
 	waveForm.setColours(juce::Colours::black, juce::Colours::lime);
 	initialiseGraph();
+
+#if defined(JUCE_DEBUG) || defined(DEBUG)
+	juce::UnitTestRunner runner;
+	runner.setAssertOnFailure(false);
+	runner.runAllTests();
+
+	for (int i = 0; i < runner.getNumResults(); ++i)
+	{
+		auto* result = runner.getResult(i);
+		juce::String msg = "[TEST] " + result->unitTestName
+			+ " | " + result->subcategoryName
+			+ " | Failures: " + juce::String(result->failures);
+		juce::Logger::writeToLog(msg);
+		DBG(msg);
+	}
+#endif
 }
 
 DissonanceMeeterAudioProcessor::~DissonanceMeeterAudioProcessor()
