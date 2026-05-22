@@ -245,6 +245,13 @@ void DissonanceMeeterAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
 		for (int ch = 1; ch < numCh; ++ch)
 			buffer.copyFrom(ch, 0, buffer, 0, 0, numSamples);
 
+		// Normalizzazione peak (identica all'input esterno)
+		float peak = 0.0f;
+		for (int ch = 0; ch < numCh; ++ch)
+			peak = juce::jmax(peak, buffer.getMagnitude(ch, 0, numSamples));
+		if (peak > 1e-6f)
+			buffer.applyGain(1.0f / peak);
+
 		// Applica la catena BandPass → Distortion anche all'oscillatore
 		if (mainProcessor != nullptr)
 			mainProcessor->processBlock(buffer, midiMessages);

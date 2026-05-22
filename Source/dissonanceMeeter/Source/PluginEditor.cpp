@@ -129,6 +129,8 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 	addAndMakeVisible(audioProcessor.getWaveForm());
 
 	setSize(750, 450);
+	setResizable(true, true);
+	setResizeLimits(750, 450, 30000, 30000);
 	setOpaque(true);
 	startTimerHz(30);
 }
@@ -195,7 +197,11 @@ void DissonanceMeeterAudioProcessorEditor::paint(juce::Graphics& g)
 
 		g.setColour(Colours::white);
 		g.setFont(10.0f);
-		g.drawText("BAND", bandMeterX, meterY + meterH + 2, meterW, 14, Justification::centred);
+		{
+			const int bandLabelW = 36;
+			const int bandLabelX = bandMeterX - (bandLabelW - meterW) / 2;
+			g.drawText("BAND", bandLabelX, meterY + meterH + 2, bandLabelW, 14, Justification::centred);
+		}
 	}
 
 	// ── Tick marks dB (condivisi per entrambi i meter) ──────────────────────
