@@ -26,8 +26,8 @@ DissonanceMeeterAudioProcessor::DissonanceMeeterAudioProcessor()
 {
 	mainProcessor = std::make_unique<juce::AudioProcessorGraph>();
 	waveForm.setRepaintRate(30);
-	waveForm.setBufferSize(512);
-	waveForm.setSamplesPerBlock(256);
+	waveForm.setBufferSize(256);
+	waveForm.setSamplesPerBlock(512);
 	waveForm.setColours(juce::Colours::black, juce::Colours::lime);
 	initialiseGraph();
 
