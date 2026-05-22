@@ -73,6 +73,7 @@ ninja.build
 *.mod
 *.sbr
 *.dmp
+*.exp
 
 # Static analysis / profiler outputs ----------------
 *.oprof
