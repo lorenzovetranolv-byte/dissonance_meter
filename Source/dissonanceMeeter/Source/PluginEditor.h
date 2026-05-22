@@ -31,11 +31,14 @@ public:
 	void timerCallback() override;
 
 private:
+	class DissonanceLookAndFeel;
+
 	// This reference is provided as a quick way for your editor to
 	// access the processor object that created it.
 	DissonanceMeeterAudioProcessor& audioProcessor;
 	BandPassFilter& bandPassProcessor;
 	Distortion& distortionProcessor;
+	DissonanceLookAndFeel* customLookAndFeel = nullptr;
 
 	// --- Parametri BandPass ---
 	juce::Slider minFreqSlider;   // MIN_FREQ
@@ -69,6 +72,11 @@ private:
 	// Il meter della banda è disegnato separatamente a destra
 	int meterX = 0, meterY = 0, meterW = 18, meterH = 200;
 	int bandMeterX = 0;
+	juce::Rectangle<int> sectionFreq;
+	juce::Rectangle<int> sectionNonlin;
+	juce::Rectangle<int> sectionOsc;
+	juce::Rectangle<int> sectionMaster;
+	juce::Rectangle<int> sectionViz;
 
 	static constexpr float meterMinDb = -60.0f;
 	static constexpr float meterMaxDb = 0.0f;
