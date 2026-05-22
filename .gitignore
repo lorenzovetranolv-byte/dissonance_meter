@@ -131,8 +131,4 @@ __pycache__/
 # Lock / state files
 *.lock
 
-# MSBuild / Visual Studio build output (artefatti locali, mai versionare)
-Source/dissonanceMeeter/Builds/VisualStudio2026/x64/
-Source/dissonanceMeeter/Builds/VisualStudio2026/
-
 # End of file
