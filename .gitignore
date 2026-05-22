@@ -131,4 +131,7 @@ __pycache__/
 # Lock / state files
 *.lock
 
+# Visual Studio recipe files (auto-generated, contains machine-specific paths) ----
+*.recipe
+
 # End of file
