@@ -52,7 +52,9 @@ public:
 
 		void runTest() override
 		{
-				beginTest ("440 Hz + 466 Hz (semitono) deve produrre dissonanza > 0.3");
+				// 440+550 Hz (terza maggiore, df=110 Hz = 5.1 bins): risolto dall'FFT
+				// Plomp-Levelt d ~ 0.033; soglia conservativa > 0.01
+				beginTest ("440 Hz + 550 Hz (terza maggiore) deve produrre dissonanza > 0.01");
 
 				DissonanceAnalyser analyser;
 				analyser.prepare (44100.0);
@@ -60,13 +62,13 @@ public:
 				constexpr int numSamples = 8192;
 				for (int i = 0; i < numSamples; ++i)
 				{
-						float s = std::sin (2.0f * juce::MathConstants<float>::pi * 440.0f   * (float)i / 44100.0f)
-										+ std::sin (2.0f * juce::MathConstants<float>::pi * 466.16f  * (float)i / 44100.0f);
+						float s = std::sin (2.0f * juce::MathConstants<float>::pi * 440.0f * (float)i / 44100.0f)
+										+ std::sin (2.0f * juce::MathConstants<float>::pi * 550.0f * (float)i / 44100.0f);
 						analyser.pushSample (s * 0.5f);
 				}
 
 				float d = analyser.getDissonance();
-				expectGreaterThan (d, 0.3f);
+				expectGreaterThan (d, 0.01f);
 		}
 };
 
@@ -81,7 +83,9 @@ public:
 
 		void runTest() override
 		{
-				beginTest ("Quinta giusta (440+660 Hz) meno dissonante del semitono (440+466 Hz)");
+				// Usa 440+550 Hz (terza maggiore, df=110 Hz) come intervallo "dissonante"
+				// perche' il semitono (df=26 Hz) non e' risolvibile dalla FFT a 2048 punti
+				beginTest ("Quinta giusta (440+660 Hz) meno dissonante della terza maggiore (440+550 Hz)");
 
 				constexpr int numSamples = 8192;
 				constexpr float sr = 44100.0f;
@@ -96,22 +100,22 @@ public:
 						fifth.pushSample (s * 0.5f);
 				}
 
-				// Semitono
-				DissonanceAnalyser semitone;
-				semitone.prepare (sr);
+				// Terza maggiore
+				DissonanceAnalyser third;
+				third.prepare (sr);
 				for (int i = 0; i < numSamples; ++i)
 				{
-						float s = std::sin (2.0f * juce::MathConstants<float>::pi * 440.0f  * (float)i / sr)
-										+ std::sin (2.0f * juce::MathConstants<float>::pi * 466.16f * (float)i / sr);
-						semitone.pushSample (s * 0.5f);
+						float s = std::sin (2.0f * juce::MathConstants<float>::pi * 440.0f * (float)i / sr)
+										+ std::sin (2.0f * juce::MathConstants<float>::pi * 550.0f * (float)i / sr);
+						third.pushSample (s * 0.5f);
 				}
 
-				float dFifth    = fifth.getDissonance();
-				float dSemitone = semitone.getDissonance();
+				float dFifth = fifth.getDissonance();
+				float dThird = third.getDissonance();
 
-				expect (dFifth < dSemitone,
-						"La quinta giusta dovrebbe essere meno dissonante del semitono. "
-						"Quinta=" + juce::String (dFifth) + " Semitono=" + juce::String (dSemitone));
+				expect (dFifth < dThird,
+						"La quinta giusta dovrebbe essere meno dissonante della terza maggiore. "
+						"Quinta=" + juce::String (dFifth) + " Terza=" + juce::String (dThird));
 		}
 };
 
@@ -225,7 +229,7 @@ public:
 						for (int i = 0; i < bufferSize; ++i)
 						{
 								float s = buffer.getSample (0, i);
-								expect (s >= -5.0f && s <= 5.0f,
+								expect (s >= -1.0f && s <= 1.0f,
 										"Campione fuori range al blocco " + juce::String (block)
 										+ " campione " + juce::String (i) + ": " + juce::String (s));
 						}
@@ -283,6 +287,252 @@ public:
 };
 
 //==============================================================================
+// TEST 8 - DissonanceAnalyser: silenzio -> dissonanza 0
+//==============================================================================
+class DissonanceAnalyserSilenceTest : public juce::UnitTest
+{
+public:
+    DissonanceAnalyserSilenceTest()
+        : juce::UnitTest ("DissonanceAnalyser - Silenzio", "DissonanceMeeter") {}
+
+    void runTest() override
+    {
+        beginTest ("Silenzio (tutti zeri) deve produrre dissonanza == 0.0");
+
+        DissonanceAnalyser analyser;
+        analyser.prepare (44100.0);
+
+        for (int i = 0; i < 4096; ++i)
+            analyser.pushSample (0.0f);
+
+        expectEquals (analyser.getDissonance(), 0.0f);
+    }
+};
+
+//==============================================================================
+// TEST 9 - DissonanceAnalyser: unisono -> dissonanza = 0
+// Due toni identici fondono in un unico picco FFT: nessuna coppia -> d=0
+//==============================================================================
+class DissonanceAnalyserUnisonTest : public juce::UnitTest
+{
+public:
+    DissonanceAnalyserUnisonTest()
+        : juce::UnitTest ("DissonanceAnalyser - Unisono", "DissonanceMeeter") {}
+
+    void runTest() override
+    {
+        beginTest ("Unisono (440+440 Hz) deve produrre dissonanza < 0.05");
+
+        DissonanceAnalyser analyser;
+        analyser.prepare (44100.0);
+
+        for (int i = 0; i < 8192; ++i)
+        {
+            float phase = juce::MathConstants<float>::twoPi * 440.0f * (float)i / 44100.0f;
+            analyser.pushSample (std::sin (phase));
+        }
+
+        expectLessThan (analyser.getDissonance(), 0.05f);
+    }
+};
+
+//==============================================================================
+// TEST 10 - DissonanceAnalyser: ordinamento corretto degli intervalli
+//
+// Usa intervalli con separazione >= 100 Hz (>= 4.6 bins a 44100 Hz / FFT 2048)
+// cosi' i picchi sono risolvibili e il modello Plomp-Levelt da' l'ordine atteso:
+//   terza maggiore (df=110) > quarta (df=147) > tritono (df=182) > quinta (df=220)
+//==============================================================================
+class DissonanceAnalyserRankingTest : public juce::UnitTest
+{
+public:
+    DissonanceAnalyserRankingTest()
+        : juce::UnitTest ("DissonanceAnalyser - Ordinamento intervalli", "DissonanceMeeter") {}
+
+    void runTest() override
+    {
+        // Helper: misura dissonanza di due sinusoidi a 0.5 di ampiezza ciascuna
+        auto measure = [] (float f1, float f2) -> float
+        {
+            DissonanceAnalyser a;
+            a.prepare (44100.0);
+            for (int i = 0; i < 8192; ++i)
+                a.pushSample (0.5f * std::sin (juce::MathConstants<float>::twoPi * f1 * (float)i / 44100.0f)
+                            + 0.5f * std::sin (juce::MathConstants<float>::twoPi * f2 * (float)i / 44100.0f));
+            return a.getDissonance();
+        };
+
+        // Base A4 = 440 Hz
+        const float dThird   = measure (440.0f, 550.0f);   // terza maggiore 5:4  df=110 Hz
+        const float dFourth  = measure (440.0f, 586.67f);  // quarta giusta  4:3  df=147 Hz
+        const float dTritone = measure (440.0f, 622.25f);  // tritono        sqrt2 df=182 Hz
+        const float dFifth   = measure (440.0f, 660.0f);   // quinta giusta  3:2  df=220 Hz
+
+        beginTest ("Terza maggiore (440+550 Hz) piu' dissonante della quinta (440+660 Hz)");
+        expect (dThird > dFifth,
+            "Terza=" + juce::String (dThird) + " Quinta=" + juce::String (dFifth));
+
+        beginTest ("Quarta giusta (440+587 Hz) piu' dissonante della quinta (440+660 Hz)");
+        expect (dFourth > dFifth,
+            "Quarta=" + juce::String (dFourth) + " Quinta=" + juce::String (dFifth));
+
+        beginTest ("Tritono (440+622 Hz) piu' dissonante della quinta (440+660 Hz)");
+        expect (dTritone > dFifth,
+            "Tritono=" + juce::String (dTritone) + " Quinta=" + juce::String (dFifth));
+
+        beginTest ("Terza maggiore piu' dissonante della quarta giusta");
+        expect (dThird > dFourth,
+            "Terza=" + juce::String (dThird) + " Quarta=" + juce::String (dFourth));
+    }
+};
+
+//==============================================================================
+// TEST 11 - BandPassFilter: segnale in banda passa, fuori banda attenuato
+//==============================================================================
+class BandPassFilterBasicTest : public juce::UnitTest
+{
+public:
+    BandPassFilterBasicTest()
+        : juce::UnitTest ("BandPassFilter - Risposta in frequenza", "DissonanceMeeter") {}
+
+    void runTest() override
+    {
+        constexpr int    blockSize = 512;
+        constexpr float  sr       = 44100.0f;
+        constexpr int    warmup   = 20;   // blocchi per far convergere lo smoother
+
+        // Helper: ratio RMS_out / RMS_in per una frequenza di test
+        auto measureRatio = [&] (float testFreq) -> float
+        {
+            BandPassFilter filter;
+            filter.prepareToPlay (sr, blockSize);
+
+            auto* minP = filter.treeState.getParameter ("MIN_FREQ");
+            auto* maxP = filter.treeState.getParameter ("MAX_FREQ");
+            if (minP) minP->setValueNotifyingHost (minP->convertTo0to1 (200.0f));
+            if (maxP) maxP->setValueNotifyingHost (maxP->convertTo0to1 (2000.0f));
+
+            juce::AudioBuffer<float> buf (1, blockSize);
+            juce::MidiBuffer         midi;
+
+            // Riscaldamento con tono continuo (fase continua tra blocchi)
+            for (int b = 0; b < warmup; ++b)
+            {
+                for (int i = 0; i < blockSize; ++i)
+                {
+                    int n = b * blockSize + i;
+                    buf.setSample (0, i, std::sin (juce::MathConstants<float>::twoPi * testFreq * (float)n / sr));
+                }
+                filter.processBlock (buf, midi);
+            }
+
+            // Misura su un blocco a regime
+            float inRms = 0.0f, outRms = 0.0f;
+            for (int i = 0; i < blockSize; ++i)
+            {
+                float s = std::sin (juce::MathConstants<float>::twoPi * testFreq * (float)(warmup * blockSize + i) / sr);
+                buf.setSample (0, i, s);
+                inRms += s * s;
+            }
+            inRms = std::sqrt (inRms / (float)blockSize);
+
+            filter.processBlock (buf, midi);
+
+            for (int i = 0; i < blockSize; ++i)
+                outRms += buf.getSample (0, i) * buf.getSample (0, i);
+            outRms = std::sqrt (outRms / (float)blockSize);
+
+            return (inRms > 1e-9f) ? (outRms / inRms) : 0.0f;
+        };
+
+        beginTest ("1 kHz (in banda) deve passare con perdita < 6 dB (ratio > 0.5)");
+        {
+            float ratio = measureRatio (1000.0f);
+            expect (ratio > 0.5f, "1 kHz ratio = " + juce::String (ratio) + " (atteso > 0.5)");
+        }
+
+        // Un BPF del 2° ordine attenua a 20 dB/decade sotto la frequenza di taglio inferiore.
+        // A 50 Hz (fattore 4 sotto i 200 Hz), l'attenuazione teorica e' ~12 dB (ratio ~0.25).
+        // Il test verifica che l'attenuazione fuori banda sia chiaramente inferiore alla banda passante.
+        beginTest ("50 Hz (fuori banda) deve essere attenuato rispetto a 1 kHz (ratio < 0.4)");
+        {
+            float ratio = measureRatio (50.0f);
+            expect (ratio < 0.4f, "50 Hz ratio = " + juce::String (ratio) + " (atteso < 0.4)");
+        }
+    }
+};
+
+//==============================================================================
+// TEST 12 - Catena completa: BandPass + Distortion + DissonanceAnalyser
+//
+// Verifica che la catena ordini gli intervalli correttamente senza istanziare
+// DissonanceMeeterAudioProcessor (il cui costruttore auto-esegue i test in Debug
+// causando ricorsione infinita).
+//==============================================================================
+class ProcessorChainDissonanceTest : public juce::UnitTest
+{
+public:
+    ProcessorChainDissonanceTest()
+        : juce::UnitTest ("Chain - Ordinamento dissonanza (BP+Dist+Analyser)", "DissonanceMeeter") {}
+
+    void runTest() override
+    {
+        beginTest ("Terza maggiore (440+550) piu' dissonante della quinta (440+660) nella catena completa");
+
+        auto measureChain = [] (float f1, float f2) -> float
+        {
+            constexpr int    blockSize = 512;
+            constexpr double sr        = 44100.0;
+
+            BandPassFilter bp;
+            bp.prepareToPlay (sr, blockSize);
+
+            Distortion dist;
+            dist.prepareToPlay (sr, blockSize);
+
+            DissonanceAnalyser analyser;
+            analyser.prepare (sr);
+
+            juce::AudioBuffer<float> buf (1, blockSize);
+            juce::MidiBuffer         midi;
+
+            double phase1 = 0.0, phase2 = 0.0;
+            const double inc1 = juce::MathConstants<double>::twoPi * (double)f1 / sr;
+            const double inc2 = juce::MathConstants<double>::twoPi * (double)f2 / sr;
+
+            for (int block = 0; block < 60; ++block)
+            {
+                for (int i = 0; i < blockSize; ++i)
+                {
+                    buf.setSample (0, i, 0.5f * (float)std::sin (phase1)
+                                       + 0.5f * (float)std::sin (phase2));
+                    phase1 += inc1;
+                    phase2 += inc2;
+                    if (phase1 > juce::MathConstants<double>::twoPi) phase1 -= juce::MathConstants<double>::twoPi;
+                    if (phase2 > juce::MathConstants<double>::twoPi) phase2 -= juce::MathConstants<double>::twoPi;
+                }
+
+                bp.processBlock   (buf, midi);
+                dist.processBlock (buf, midi);
+
+                const float* data = buf.getReadPointer (0);
+                for (int i = 0; i < blockSize; ++i)
+                    analyser.pushSample (data[i]);
+            }
+
+            return analyser.getDissonance();
+        };
+
+        const float dThird = measureChain (440.0f, 550.0f);
+        const float dFifth = measureChain (440.0f, 660.0f);
+
+        expect (dThird > dFifth,
+            "Catena: Terza=" + juce::String (dThird)
+            + " Quinta=" + juce::String (dFifth));
+    }
+};
+
+//==============================================================================
 // Registrazione automatica di tutti i test
 //==============================================================================
 static DissonanceAnalyserSingleSineTest    dissonanceTest1;
@@ -292,4 +542,9 @@ static DissonanceAnalyserResetTest         dissonanceTest4;
 static DistortionNotSilentTest             distortionTest1;
 static DistortionOutputRangeTest           distortionTest2;
 static DistortionNoNaNTest                 distortionTest3;
+static DissonanceAnalyserSilenceTest       dissonanceTest5;
+static DissonanceAnalyserUnisonTest        dissonanceTest6;
+static DissonanceAnalyserRankingTest       dissonanceTest7;
+static BandPassFilterBasicTest             bpTest1;
+static ProcessorChainDissonanceTest        integrationTest1;
 

@@ -13,6 +13,7 @@
 #include "ProcessorBase.h"
 #include <atomic>
 #include <cmath>
+#include "../../DissonanceAnalyser.h"
 
 
 class BandPassFilter : public ProcessorBase
@@ -145,7 +146,7 @@ private:
 
 		for (auto& f : filters)
 			*f.coefficients = *juce::dsp::IIR::Coefficients<float>::makeBandPass(
-				(double)currentSampleRate, (double)center, (double)q); // aggiorna tutti i filtri duplicati
+				currentSampleRate, center, q);
 	}
 
 	float currentSampleRate = 44100.0f;
@@ -213,21 +214,22 @@ public:
 				float& dx = xPrimeState[ch];
 				const float in = data[i] * inputScale;
 
-				// --- Euler esplicito (fedele alla specifica) ---
-				// x''(t) = f(t) - 60·x'(t-1) - 900·x(t-1) - A·x(t-1)²
+				// Euler-Cromer (semi-implicito): x'(n+1) è calcolato prima,
+				// poi usato per aggiornare x(n+1) — conserva meglio l'energia.
 
-				// 1. Calcola x'' con gli stati del passo PRECEDENTE
+				// 1. x''(n) con stati del campione PRECEDENTE (x=0, x'=0 al primo campione)
 				const float ddx = in
 					- 60.0f * dx
 					- 900.0f * x
 					- A * (x * x);
 
-				// 2. e 3. Aggiorna usando i valori VECCHI (variabili temporanee)
-				const float x_new = x + dx * dt;  // usa dx(t-1)
-				const float dx_new = dx + ddx * dt;  // usa ddx(t-1)
+				// 2. Aggiorna velocità
+				const float dx_new = juce::jlimit(
+					-500.0f * inputScale, 500.0f * inputScale, dx + ddx * dt);
 
-				x = x_new;
-				dx = juce::jlimit(-500.0f * inputScale, 500.0f * inputScale, dx_new);
+				// 3. Aggiorna posizione con la NUOVA velocità (Euler-Cromer)
+				x  += dx_new * dt;
+				dx  = dx_new;
 
 				// Output: solo lettura di x, nessuna modifica allo stato
 				float out = x * outputScale;
@@ -333,12 +335,15 @@ public:
 	void  updateOutputLevelRms(float dbfs) noexcept { outputLevelRms.store(dbfs); }
 	float getOutputLevelRms() const noexcept { return outputLevelRms.load(); }
 
+	float getDissonance() const noexcept { return dissonanceAnalyser.getDissonance(); }
+
 	juce::AudioVisualiserComponent& getWaveForm() noexcept { return waveForm; }
 
 	std::atomic<float> outputGain{ 1.0f };
 	std::atomic<float> outputLevelRms{ -100.0f };
 
 private:
+	DissonanceAnalyser dissonanceAnalyser;
 	void initialiseGraph();
 	void connectAudioNodes();
 

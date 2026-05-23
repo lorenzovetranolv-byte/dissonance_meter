@@ -103,16 +103,16 @@ int DissonanceMeeterAudioProcessor::getCurrentProgram()
 	return 0;
 }
 
-void DissonanceMeeterAudioProcessor::setCurrentProgram(int index)
+void DissonanceMeeterAudioProcessor::setCurrentProgram(int)
 {
 }
 
-const juce::String DissonanceMeeterAudioProcessor::getProgramName(int index)
+const juce::String DissonanceMeeterAudioProcessor::getProgramName(int)
 {
 	return {};
 }
 
-void DissonanceMeeterAudioProcessor::changeProgramName(int index, const juce::String& newName)
+void DissonanceMeeterAudioProcessor::changeProgramName(int, const juce::String&)
 {
 }
 
@@ -133,6 +133,7 @@ void DissonanceMeeterAudioProcessor::prepareToPlay(double sampleRate, int sample
 	mainProcessor->setPlayConfigDetails(numInputChannels, numOutputChannels, sampleRate, samplesPerBlock);
 	mainProcessor->prepareToPlay(sampleRate, samplesPerBlock);
 
+	dissonanceAnalyser.prepare(sampleRate);
 	initialiseOscillator();
 }
 
@@ -277,6 +278,20 @@ void DissonanceMeeterAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
 	updateOutputLevelRms(dbfs);
 
 	waveForm.pushBuffer(buffer);
+
+	// Feed mono mix to dissonance analyser (post-chain, post-gain)
+	{
+		const int numS = buffer.getNumSamples();
+		const int numC = buffer.getNumChannels();
+		for (int i = 0; i < numS; ++i)
+		{
+			float mono = 0.0f;
+			for (int ch = 0; ch < numC; ++ch)
+				mono += buffer.getReadPointer(ch)[i];
+			if (numC > 0) mono /= (float)numC;
+			dissonanceAnalyser.pushSample(mono);
+		}
+	}
 }
 
 //==============================================================================

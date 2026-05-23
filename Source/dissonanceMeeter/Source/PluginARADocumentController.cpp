@@ -18,19 +18,13 @@ juce::ARAPlaybackRenderer* DissonanceMeeterDocumentController::doCreatePlaybackR
 }
 
 //==============================================================================
-bool DissonanceMeeterDocumentController::doRestoreObjectsFromStream (juce::ARAInputStream& input, const juce::ARARestoreObjectsFilter* filter) noexcept
+bool DissonanceMeeterDocumentController::doRestoreObjectsFromStream (juce::ARAInputStream&, const juce::ARARestoreObjectsFilter*) noexcept
 {
-    // You should use this method to read any persistent data associated with
-    // your ARA model graph stored in an archive using the supplied ARAInputStream.
-    // Be sure to check the ARARestoreObjectsFilter to determine which objects to restore.
     return true;
 }
 
-bool DissonanceMeeterDocumentController::doStoreObjectsToStream (juce::ARAOutputStream& output, const juce::ARAStoreObjectsFilter* filter) noexcept
+bool DissonanceMeeterDocumentController::doStoreObjectsToStream (juce::ARAOutputStream&, const juce::ARAStoreObjectsFilter*) noexcept
 {
-    // You should use this method to write any persistent data associated with
-    // your ARA model graph into the an archive using the supplied ARAOutputStream.
-    // Be sure to check the ARAStoreObjectsFilter to determine which objects to store.
     return true;
 }
 

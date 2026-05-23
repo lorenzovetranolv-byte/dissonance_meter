@@ -73,6 +73,7 @@ bool DissonanceMeeterPlaybackRenderer::processBlock (juce::AudioBuffer<float>& b
             const int numSamplesToRead = (int) renderRange.getLength();
             const int startInBuffer = (int) (renderRange.getStart() - blockRange.getStart());
             const auto startInSource = renderRange.getStart() + modificationSampleOffset;
+            juce::ignoreUnused (startInSource);
 
             for (int c = 0; c < numChannels; ++c)
             {

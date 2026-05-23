@@ -77,6 +77,7 @@ private:
 	juce::Rectangle<int> sectionOsc;
 	juce::Rectangle<int> sectionMaster;
 	juce::Rectangle<int> sectionViz;
+	juce::Rectangle<int> dissBarBounds;
 
 	static constexpr float meterMinDb = -60.0f;
 	static constexpr float meterMaxDb = 0.0f;
