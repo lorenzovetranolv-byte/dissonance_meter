@@ -126,7 +126,4 @@ node_modules/
 # Visual Studio recipe files (auto-generated, contains machine-specific paths) ----
 *.recipe
 
-# Unit tests (Debug-only) ---------------
-*/PluginTests.cpp
-
 # End of file
