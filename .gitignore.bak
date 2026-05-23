@@ -127,6 +127,6 @@ node_modules/
 *.recipe
 
 # Unit tests (Debug-only) ---------------
-Source\dissonanceMeeter\Source\PluginTests.cpp
+Source/dissonanceMeeter/Source/PluginTests.cpp
 
 # End of file
