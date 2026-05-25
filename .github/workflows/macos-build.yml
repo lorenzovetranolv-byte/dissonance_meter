@@ -1,14 +1,11 @@
 name: Build AU Plugin (macOS)
-
 on:
   push:
     branches: [ main ]
   pull_request:
-
 jobs:
   build:
     runs-on: macos-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.1.0
@@ -23,8 +20,22 @@ jobs:
             -arch x86_64 \
             HEADER_SEARCH_PATHS='$(inherited) $(SRCROOT)/../../../../ARA_SDK'
 
+      - name: Create install instructions
+        run: |
+          cat > /tmp/INSTALL.md << 'EOF'
+          # Installazione dissonanceMeeter AU Plugin
+
+          1. Copia `dissonanceMeeter.component` in `~/Library/Audio/Plug-Ins/Components/`
+          2. Rimuovi la quarantena macOS con:
+          ```bash
+          xattr -cr ~/Library/Audio/Plug-Ins/Components/dissonanceMeeter.component
+          ```
+          EOF
+
       - name: Upload AU component
         uses: actions/upload-artifact@v4.3.0
         with:
           name: AU-Build
-          path: Source/dissonanceMeeter/Builds/MacOSX/build/Release/*.component
+          path: |
+            Source/dissonanceMeeter/Builds/MacOSX/build/Release/*.component
+            /tmp/INSTALL.md
