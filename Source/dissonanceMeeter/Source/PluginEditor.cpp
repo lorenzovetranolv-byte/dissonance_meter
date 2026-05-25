@@ -504,20 +504,22 @@ void DissonanceMeeterAudioProcessorEditor::resized()
 	// ---- OSCILLATORS section (below parameters, full right width) ----
 	{
 		auto inner = sectionOsc.reduced(pad);
-		const int oscSliderW = inner.getWidth() - UiTheme::oscLabelW - btnW * 2 - pad;
+		const int oscBtnW  = 28;   // wider than generic smallBtn so "+" text is not clipped
+		const int btnGap   = 6;    // gap between slider textbox and the minus button
+		const int oscSliderW = inner.getWidth() - UiTheme::oscLabelW - oscBtnW * 2 - pad - btnGap;
 		const int rowGap = 10;
 		const int row1Y = inner.getY() + titleH + 4;
 
 		osc1Label.setBounds(inner.getX(), row1Y, UiTheme::oscLabelW, labelH);
 		oscFreq1Slider.setBounds(inner.getX() + UiTheme::oscLabelW, row1Y, oscSliderW, 24);
-		oscFreq1Minus.setBounds(inner.getRight() - btnW * 2 - pad, row1Y, btnW, 24);
-		oscFreq1Plus.setBounds(inner.getRight() - btnW, row1Y, btnW, 24);
+		oscFreq1Minus.setBounds(inner.getRight() - oscBtnW * 2 - pad, row1Y, oscBtnW, 24);
+		oscFreq1Plus.setBounds(inner.getRight() - oscBtnW, row1Y, oscBtnW, 24);
 
 		const int row2Y = row1Y + 24 + rowGap;
 		osc2Label.setBounds(inner.getX(), row2Y, UiTheme::oscLabelW, labelH);
 		oscFreq2Slider.setBounds(inner.getX() + UiTheme::oscLabelW, row2Y, oscSliderW, 24);
-		oscFreq2Minus.setBounds(inner.getRight() - btnW * 2 - pad, row2Y, btnW, 24);
-		oscFreq2Plus.setBounds(inner.getRight() - btnW, row2Y, btnW, 24);
+		oscFreq2Minus.setBounds(inner.getRight() - oscBtnW * 2 - pad, row2Y, oscBtnW, 24);
+		oscFreq2Plus.setBounds(inner.getRight() - oscBtnW, row2Y, oscBtnW, 24);
 	}
 
 	// ---- Waveform: below the title strip in the viz card ----

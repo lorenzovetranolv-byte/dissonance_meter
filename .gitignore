@@ -126,4 +126,10 @@ node_modules/
 # Visual Studio recipe files (auto-generated, contains machine-specific paths) ----
 *.recipe
 
+# MSBuild generated file lists (machine-specific, regenerated on each build) ------
+*.FileListAbsolute.txt
+
+# Windows resource compiler output (regenerated on each build) --------------------
+resources.res
+
 # End of file
