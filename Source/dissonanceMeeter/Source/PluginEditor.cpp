@@ -37,15 +37,15 @@ namespace
 	};
 }
 
-const juce::Colour UiTheme::background{ 0xFF1E1F24 };
-const juce::Colour UiTheme::panel{ 0xFF2A2D34 };
-const juce::Colour UiTheme::panelAlt{ 0xFF252730 };
-const juce::Colour UiTheme::accent{ 0xFF3EC1FF };
-const juce::Colour UiTheme::accentBlue{ 0xFF4DA3FF };
-const juce::Colour UiTheme::text{ 0xFFEAEAEA };
-const juce::Colour UiTheme::textDim{ 0xFF9AA0A6 };
-const juce::Colour UiTheme::warning{ 0xFFFF8C42 };
-const juce::Colour UiTheme::grid{ 0xFF2F323C };
+const juce::Colour UiTheme::background{ 0xFF141918 };
+const juce::Colour UiTheme::panel{ 0xFF1C2622 };
+const juce::Colour UiTheme::panelAlt{ 0xFF162020 };
+const juce::Colour UiTheme::accent{ 0xFF2EC9A0 };
+const juce::Colour UiTheme::accentBlue{ 0xFF25A882 };
+const juce::Colour UiTheme::text{ 0xFFE0EBE6 };
+const juce::Colour UiTheme::textDim{ 0xFF5E8070 };
+const juce::Colour UiTheme::warning{ 0xFFFF7A40 };
+const juce::Colour UiTheme::grid{ 0xFF222C2A };
 
 class DissonanceMeeterAudioProcessorEditor::DissonanceLookAndFeel : public juce::LookAndFeel_V4
 {
@@ -56,6 +56,11 @@ public:
 		setColour(juce::Slider::trackColourId, UiTheme::accentBlue);
 		setColour(juce::Slider::rotarySliderOutlineColourId, UiTheme::grid);
 		setColour(juce::Slider::rotarySliderFillColourId, UiTheme::accentBlue);
+		setColour(juce::Slider::textBoxTextColourId, UiTheme::text);
+		setColour(juce::Slider::textBoxBackgroundColourId, UiTheme::panelAlt);
+		setColour(juce::Slider::textBoxOutlineColourId, UiTheme::grid);
+		setColour(juce::TextEditor::textColourId, UiTheme::text);
+		setColour(juce::TextEditor::backgroundColourId, UiTheme::panel);
 		setColour(juce::Label::textColourId, UiTheme::text);
 		setColour(juce::Label::outlineColourId, UiTheme::grid);
 		setColour(juce::Label::backgroundColourId, UiTheme::panelAlt);
@@ -78,6 +83,10 @@ public:
 		const float arcThickness = juce::jmax(3.0f, size * 0.06f);
 		const float angle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
 
+		const float bgRadius = radius - arcThickness * 0.5f - 3.0f;
+		g.setColour(UiTheme::background);
+		g.fillEllipse(cx - bgRadius, cy - bgRadius, bgRadius * 2.0f, bgRadius * 2.0f);
+
 		juce::Path backgroundArc;
 		backgroundArc.addCentredArc(cx, cy, radius, radius, 0.0f, rotaryStartAngle, rotaryEndAngle, true);
 		g.setColour(UiTheme::grid);
@@ -88,10 +97,10 @@ public:
 		g.setColour(slider.isMouseOverOrDragging() ? UiTheme::accent : UiTheme::accentBlue);
 		g.strokePath(valueArc, juce::PathStrokeType(arcThickness));
 
-		const float thumbDot  = juce::jmax(5.0f, size * 0.075f); // scales with knob size
-		const float thumbRadius = radius - arcThickness * 0.5f;
-		const float tx = cx + thumbRadius * std::cos(angle);
-		const float ty = cy + thumbRadius * std::sin(angle);
+		const float thumbDot = juce::jmax(15.0f, size * 0.075f);
+		const float thumbRadius = radius;
+		const float tx = cx + thumbRadius * std::sin(angle);
+		const float ty = cy - thumbRadius * std::cos(angle);
 		juce::Path thumb;
 		thumb.addEllipse(tx - thumbDot * 0.5f, ty - thumbDot * 0.5f, thumbDot, thumbDot);
 		g.setColour(UiTheme::text);
@@ -144,7 +153,6 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 	distortionProcessor(d)
 {
 #if JucePlugin_Enable_ARA
-	// ARA plugins must be resizable for proper view embedding
 	setResizable(true, false);
 #endif
 
@@ -163,13 +171,10 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 		s->setRotaryParameters(MathConstants<float>::pi * 1.2f,
 			MathConstants<float>::pi * 2.8f, true);
 		s->setTextBoxStyle(Slider::TextBoxBelow, false, 64, 18);
-		s->setSkewFactorFromMidPoint(1000.0);
 		s->setColour(Slider::textBoxBackgroundColourId, UiTheme::panelAlt);
 		s->setColour(Slider::textBoxOutlineColourId, UiTheme::grid);
 		s->setColour(Slider::textBoxTextColourId, UiTheme::text);
 	}
-	minFreqSlider.setRange(20.0, 10000.0, 1.0);
-	maxFreqSlider.setRange(20.0, 20000.0, 1.0);
 
 	// --- Slider Distortion con attachment ---
 	aAttachment = std::make_unique<AudioProcessorValueTreeState::SliderAttachment>(
@@ -178,7 +183,6 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 	aSlider.setRotaryParameters(MathConstants<float>::pi * 1.2f,
 		MathConstants<float>::pi * 2.8f, true);
 	aSlider.setTextBoxStyle(Slider::TextBoxBelow, false, 64, 18);
-	aSlider.setRange(0.1, 5.0, 0.01);
 	aSlider.setColour(Slider::textBoxBackgroundColourId, UiTheme::panelAlt);
 	aSlider.setColour(Slider::textBoxOutlineColourId, UiTheme::grid);
 	aSlider.setColour(Slider::textBoxTextColourId, UiTheme::text);
@@ -296,12 +300,12 @@ void DissonanceMeeterAudioProcessorEditor::paint(juce::Graphics& g)
 		header.removeFromRight(170), juce::Justification::centredRight);
 
 	auto drawCard = [&g](juce::Rectangle<int> area)
-	{
-		g.setColour(UiTheme::panel);
-		g.fillRoundedRectangle(area.toFloat(), (float)UiTheme::radius);
-		g.setColour(UiTheme::grid);
-		g.drawRoundedRectangle(area.toFloat(), (float)UiTheme::radius, 1.0f);
-	};
+		{
+			g.setColour(UiTheme::panel);
+			g.fillRoundedRectangle(area.toFloat(), (float)UiTheme::radius);
+			g.setColour(UiTheme::grid);
+			g.drawRoundedRectangle(area.toFloat(), (float)UiTheme::radius, 1.0f);
+		};
 
 	for (auto area : { sectionMaster, sectionFreq, sectionOsc, sectionViz })
 		drawCard(area);
@@ -415,11 +419,11 @@ void DissonanceMeeterAudioProcessorEditor::paint(juce::Graphics& g)
 
 void DissonanceMeeterAudioProcessorEditor::resized()
 {
-	const int pad      = UiTheme::pad;
-	const int titleH   = UiTheme::titleH;
-	const int labelH   = UiTheme::labelH;
+	const int pad = UiTheme::pad;
+	const int titleH = UiTheme::titleH;
+	const int labelH = UiTheme::labelH;
 	const int knobSize = UiTheme::knobSize;
-	const int btnW     = UiTheme::smallBtn;
+	const int btnW = UiTheme::smallBtn;
 
 	auto bounds = getLocalBounds();
 	bounds.removeFromTop(UiTheme::headerH);
@@ -428,31 +432,31 @@ void DissonanceMeeterAudioProcessorEditor::resized()
 	// Left column wide enough for: pad+meterW+pad+meterW+4+meterLabelW+pad
 	// and comfortable controls (gain slider, mode selector).
 	const int leftColW = 200;
-	const int rightW   = contentArea.getWidth() - leftColW - pad;
-	const int rightX   = contentArea.getX() + leftColW + pad;
+	const int rightW = contentArea.getWidth() - leftColW - pad;
+	const int rightX = contentArea.getX() + leftColW + pad;
 
 	// Vertical: viz at the bottom (bigger), params+osc above it.
 	// 3/8 of content height goes to waveform, capped at 200 px.
-	const int vizH      = juce::jmin(200, contentArea.getHeight() * 3 / 8);
-	const int nonVizH   = contentArea.getHeight() - vizH - pad;
+	const int vizH = juce::jmin(200, contentArea.getHeight() * 3 / 8);
+	const int nonVizH = contentArea.getHeight() - vizH - pad;
 
 	// PARAMETERS section height driven by its content: title clearance + label + knob.
 	const int titleClear = juce::jmax(0, titleH - pad);  // = 6
-	const int paramsH    = 2 * pad + titleClear + labelH + 4 + knobSize;
+	const int paramsH = 2 * pad + titleClear + labelH + 4 + knobSize;
 	// Osc section gets whatever's left; clamp to a sane minimum.
-	const int oscH       = juce::jmax(80, nonVizH - paramsH - pad);
+	const int oscH = juce::jmax(80, nonVizH - paramsH - pad);
 
 	// Section rectangles — stored, must NOT be mutated inside paint()
 	sectionMaster = juce::Rectangle<int>(contentArea.getX(), contentArea.getY(),
 		leftColW, contentArea.getHeight());
 
 	// sectionFreq is now the merged PARAMETERS card (freq min/max + nonlinearity A)
-	sectionFreq   = juce::Rectangle<int>(rightX, contentArea.getY(), rightW, paramsH);
+	sectionFreq = juce::Rectangle<int>(rightX, contentArea.getY(), rightW, paramsH);
 	sectionNonlin = {};   // no longer a separate card
 
-	sectionOsc    = juce::Rectangle<int>(rightX, sectionFreq.getBottom() + pad, rightW, oscH);
+	sectionOsc = juce::Rectangle<int>(rightX, sectionFreq.getBottom() + pad, rightW, oscH);
 
-	sectionViz    = juce::Rectangle<int>(rightX, sectionOsc.getBottom() + pad, rightW, vizH);
+	sectionViz = juce::Rectangle<int>(rightX, sectionOsc.getBottom() + pad, rightW, vizH);
 
 	// ---- Master section ----
 	{
@@ -474,9 +478,9 @@ void DissonanceMeeterAudioProcessorEditor::resized()
 		y += 14 + 20 + pad;
 
 		// Vertical meters fill whatever remains
-		meterX     = inner.getX();
-		meterY     = y;
-		meterW     = UiTheme::meterW;
+		meterX = inner.getX();
+		meterY = y;
+		meterW = UiTheme::meterW;
 		bandMeterX = meterX + meterW + pad;
 		// Reserve 14 px below meters for the "OUT" / "BAND" labels
 		meterH = juce::jmax(20, sectionMaster.getBottom() - pad - 14 - meterY);
@@ -485,35 +489,35 @@ void DissonanceMeeterAudioProcessorEditor::resized()
 	// ---- PARAMETERS section (min freq, max freq, nonlinearity A — all in one row) ----
 	{
 		auto inner = sectionFreq.reduced(pad);
-		const int labelY  = inner.getY() + titleClear;
+		const int labelY = inner.getY() + titleClear;
 		const int sliderY = labelY + labelH + 4;
 
-		minFreqLabel.setBounds(inner.getX(),                       labelY, knobSize, labelH);
-		maxFreqLabel.setBounds(inner.getX() + (knobSize + pad),    labelY, knobSize, labelH);
-		aLabel      .setBounds(inner.getX() + (knobSize + pad) * 2, labelY, knobSize, labelH);
+		minFreqLabel.setBounds(inner.getX(), labelY, knobSize, labelH);
+		maxFreqLabel.setBounds(inner.getX() + (knobSize + pad), labelY, knobSize, labelH);
+		aLabel.setBounds(inner.getX() + (knobSize + pad) * 2, labelY, knobSize, labelH);
 
-		minFreqSlider.setBounds(inner.getX(),                       sliderY, knobSize, knobSize);
-		maxFreqSlider.setBounds(inner.getX() + (knobSize + pad),    sliderY, knobSize, knobSize);
-		aSlider      .setBounds(inner.getX() + (knobSize + pad) * 2, sliderY, knobSize, knobSize);
+		minFreqSlider.setBounds(inner.getX(), sliderY, knobSize, knobSize);
+		maxFreqSlider.setBounds(inner.getX() + (knobSize + pad), sliderY, knobSize, knobSize);
+		aSlider.setBounds(inner.getX() + (knobSize + pad) * 2, sliderY, knobSize, knobSize);
 	}
 
 	// ---- OSCILLATORS section (below parameters, full right width) ----
 	{
 		auto inner = sectionOsc.reduced(pad);
 		const int oscSliderW = inner.getWidth() - UiTheme::oscLabelW - btnW * 2 - pad;
-		const int rowGap     = 10;
-		const int row1Y      = inner.getY() + titleH + 4;
+		const int rowGap = 10;
+		const int row1Y = inner.getY() + titleH + 4;
 
-		osc1Label     .setBounds(inner.getX(),                                row1Y, UiTheme::oscLabelW, labelH);
-		oscFreq1Slider.setBounds(inner.getX() + UiTheme::oscLabelW,           row1Y, oscSliderW, 24);
-		oscFreq1Minus .setBounds(inner.getRight() - btnW * 2 - pad,           row1Y, btnW, 24);
-		oscFreq1Plus  .setBounds(inner.getRight() - btnW,                     row1Y, btnW, 24);
+		osc1Label.setBounds(inner.getX(), row1Y, UiTheme::oscLabelW, labelH);
+		oscFreq1Slider.setBounds(inner.getX() + UiTheme::oscLabelW, row1Y, oscSliderW, 24);
+		oscFreq1Minus.setBounds(inner.getRight() - btnW * 2 - pad, row1Y, btnW, 24);
+		oscFreq1Plus.setBounds(inner.getRight() - btnW, row1Y, btnW, 24);
 
 		const int row2Y = row1Y + 24 + rowGap;
-		osc2Label     .setBounds(inner.getX(),                                row2Y, UiTheme::oscLabelW, labelH);
-		oscFreq2Slider.setBounds(inner.getX() + UiTheme::oscLabelW,           row2Y, oscSliderW, 24);
-		oscFreq2Minus .setBounds(inner.getRight() - btnW * 2 - pad,           row2Y, btnW, 24);
-		oscFreq2Plus  .setBounds(inner.getRight() - btnW,                     row2Y, btnW, 24);
+		osc2Label.setBounds(inner.getX(), row2Y, UiTheme::oscLabelW, labelH);
+		oscFreq2Slider.setBounds(inner.getX() + UiTheme::oscLabelW, row2Y, oscSliderW, 24);
+		oscFreq2Minus.setBounds(inner.getRight() - btnW * 2 - pad, row2Y, btnW, 24);
+		oscFreq2Plus.setBounds(inner.getRight() - btnW, row2Y, btnW, 24);
 	}
 
 	// ---- Waveform: below the title strip in the viz card ----

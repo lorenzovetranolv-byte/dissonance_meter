@@ -113,36 +113,38 @@ public:
 	float getBandIntensityDb() const noexcept { return bandIntensityDb.load(); }
 
 	juce::AudioProcessorValueTreeState treeState;
-	juce::LinearSmoothedValue<float> minFreqSmooth{ 200.0f };
-	juce::LinearSmoothedValue<float> maxFreqSmooth{ 2000.0f };
+	juce::LinearSmoothedValue<float> minFreqSmooth{ 0.0f };
+	juce::LinearSmoothedValue<float> maxFreqSmooth{ 0.0f };
 
 private:
 	juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	{
 		std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-		// Frequenza minima della banda: 20..10000 Hz, default 200 Hz
+		// Frequenza minima della banda: 20..10000 Hz, default 20 Hz (leftmost)
 		params.push_back(std::make_unique<juce::AudioParameterFloat>(
 			"MIN_FREQ", "Min Freq",
-			juce::NormalisableRange<float>(20.0f, 10000.0f, 0.0f, 0.25f), 200.0f));
+			juce::NormalisableRange<float>(0.0f, 10000.0f, 0.0f, 0.25f), 0.0f));
 
-		// Frequenza massima della banda: 20..20000 Hz, default 2000 Hz
+		// Frequenza massima della banda: 20..20000 Hz, default 20000 Hz (fully open)
 		params.push_back(std::make_unique<juce::AudioParameterFloat>(
 			"MAX_FREQ", "Max Freq",
-			juce::NormalisableRange<float>(20.0f, 20000.0f, 0.0f, 0.25f), 2000.0f));
+			juce::NormalisableRange<float>(0.0f, 20000.0f, 0.0f, 0.25f), 0.0f));
 
 		return { params.begin(), params.end() };
 	}
 
 	void updateCoefficients()
 	{
-		// Deriva centro e Q dalla banda [minFreq, maxFreq]
-		// centro = sqrt(min * max),  Q = centro / (max - min)
-		float minF = juce::jlimit(20.0f, 10000.0f, minFreqSmooth.getNextValue());
+		float minF = juce::jlimit(0.0f, 10000.0f, minFreqSmooth.getNextValue());
 		float maxF = juce::jlimit(minF + 1.0f, 20000.0f, maxFreqSmooth.getNextValue());
-		float center = std::sqrt(minF * maxF);
-		float bw = maxF - minF;
-		float q = juce::jlimit(0.1f, 30.0f, center / bw);
+
+		// makeBandPass requires center > 0; clamp to 20 Hz minimum to prevent NaN
+		const float minFeff = juce::jmax(20.0f, minF);
+		const float maxFeff = juce::jmax(minFeff + 1.0f, maxF);
+		const float center  = std::sqrt(minFeff * maxFeff);
+		const float bw      = maxFeff - minFeff;
+		const float q       = juce::jlimit(0.1f, 30.0f, center / bw);
 
 		for (auto& f : filters)
 			*f.coefficients = *juce::dsp::IIR::Coefficients<float>::makeBandPass(
@@ -158,17 +160,12 @@ private:
 };
 
 //==============================================================================
-// Distortion: oscillatore armonico smorzato non lineare
+// Distortion: Duffing-derived even-harmonic waveshaper
 //
-//   x'' = f(t) - 60*x' - 900*x - A*x^2
-//
-// Integrazione con Euler semi-implicito (Euler-Cromer):
-//   1. x''(n) = in - 60*x'(n) - 900*x(n) - A*x(n)^2
-//   2. x'(n+1) = x'(n) + x''(n) * dt          ← usa x'(n) corrente
-//   3. x(n+1)  = x(n)  + x'(n+1) * dt          ← usa x'(n+1) aggiornato
-//
-// Euler-Cromer è più stabile di Euler esplicito per sistemi oscillatori
-// perché conserva approssimativamente l'energia del sistema.
+//   y = (in + k*in²) / (1+k)   k = A/100  →  adds 2nd harmonic (x² from ODE)
+//   DC bias from in² is removed by a slow LP tracker.
+//   Soft saturation blends linearly with tanh proportional to k.
+//   A=0 → clean pass-through, A=100 → heavy even-harmonic distortion.
 //==============================================================================
 class Distortion : public ProcessorBase
 {
@@ -182,8 +179,7 @@ public:
 		(void)samplesPerBlock;
 
 		const int channels = juce::jmax(1, getTotalNumOutputChannels());
-		xState.assign(channels, 0.0f);
-		xPrimeState.assign(channels, 0.0f);
+		xState.assign(channels, 0.0f);  // DC tracker per channel
 	}
 
 	void processBlock(juce::AudioSampleBuffer& buffer, juce::MidiBuffer&) override
@@ -191,50 +187,33 @@ public:
 		drive.setTargetValue(*treeState.getRawParameterValue("A"));
 
 		const int numChannels = buffer.getNumChannels();
-		const int numSamples = buffer.getNumSamples();
-		const float dt = currentSampleRate > 0.0f ? (1.0f / currentSampleRate) : 0.0f;
-
-		const float inputScale = currentSampleRate * currentSampleRate * 0.1f;
-		const float outputScale = 1.0f / (inputScale * dt * dt + 1e-9f);
+		const int numSamples  = buffer.getNumSamples();
 
 		if ((int)xState.size() < numChannels)
-		{
 			xState.resize(numChannels, 0.0f);
-			xPrimeState.resize(numChannels, 0.0f);
-		}
 
 		for (int i = 0; i < numSamples; ++i)
 		{
 			const float A = drive.getNextValue();
+			const float k = A / 100.0f;  // normalised non-linearity [0, 1]
 
 			for (int ch = 0; ch < numChannels; ++ch)
 			{
 				float* data = buffer.getWritePointer(ch);
-				float& x = xState[ch];
-				float& dx = xPrimeState[ch];
-				const float in = data[i] * inputScale;
+				const float in = data[i];
 
-				// Euler-Cromer (semi-implicito): x'(n+1) è calcolato prima,
-				// poi usato per aggiornare x(n+1) — conserva meglio l'energia.
+				// Duffing-derived even-harmonic distortion: y = in + k*in²
+				// The x² term (as in the ODE) generates the 2nd harmonic.
+				// Pre-normalised so |out| stays bounded when |in| ≤ 1.
+				float out = (in + k * in * in) / (1.0f + k);
 
-				// 1. x''(n) con stati del campione PRECEDENTE (x=0, x'=0 al primo campione)
-				const float ddx = in
-					- 60.0f * dx
-					- 900.0f * x
-					- A * (x * x);
+				// Remove DC bias introduced by the even-power term
+				float& dc = xState[ch];
+				dc += (out - dc) * 5.0e-4f;  // ~3.5 Hz LP tracker
+				out -= dc;
 
-				// 2. Aggiorna velocità
-				const float dx_new = juce::jlimit(
-					-500.0f * inputScale, 500.0f * inputScale, dx + ddx * dt);
-
-				// 3. Aggiorna posizione con la NUOVA velocità (Euler-Cromer)
-				x  += dx_new * dt;
-				dx  = dx_new;
-
-				// Output: solo lettura di x, nessuna modifica allo stato
-				float out = x * outputScale;
-				out = std::tanh(out * 0.5f) * 2.0f;
-				data[i] = juce::jlimit(-1.0f, 1.0f, out);
+				// Soft saturation: linear at k=0, tanh at k=1 — no hard jlimit
+				data[i] = out + k * (std::tanh(out) - out);
 			}
 		}
 	}
@@ -242,29 +221,26 @@ public:
 	void reset() override
 	{
 		std::fill(xState.begin(), xState.end(), 0.0f);
-		std::fill(xPrimeState.begin(), xPrimeState.end(), 0.0f);
 		drive.reset(currentSampleRate > 0.0f ? currentSampleRate : 44100.0, 0.02);
 	}
 
 	const juce::String getName() const override { return "Distortion"; }
 
 	juce::AudioProcessorValueTreeState treeState;
-	juce::LinearSmoothedValue<float> drive{ 0.6f }; // parametro A
+	juce::LinearSmoothedValue<float> drive{ 0.0f }; // parametro A
 
 private:
 	juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	{
 		std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
-		// A: parametro di non linearità. Range esteso 0.1..5.0
 		params.push_back(std::make_unique<juce::AudioParameterFloat>(
 			"A", "A (Non-linearity)",
-			juce::NormalisableRange<float>(0.1f, 5.0f, 0.0f, 0.3f), 0.6f));
+			juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f, 0.5f), 0.0f));
 		return { params.begin(), params.end() };
 	}
 
 	float currentSampleRate = 44100.0f;
-	std::vector<float> xState;       // x(t):  posizione per ogni canale
-	std::vector<float> xPrimeState;  // x'(t): velocità per ogni canale
+	std::vector<float> xState;  // per-channel DC tracker
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Distortion)
 };

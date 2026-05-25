@@ -264,6 +264,18 @@ void DissonanceMeeterAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
 		for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
 			buffer.applyGain(ch, 0, buffer.getNumSamples(), gain);
 
+	// Post-chain peak normalisation: prevents hard clipping so metering stays stable.
+	// Only scales down when the chain produces a peak above 0 dBFS.
+	{
+		const int numCh = buffer.getNumChannels();
+		const int numS  = buffer.getNumSamples();
+		float peak = 0.0f;
+		for (int ch = 0; ch < numCh; ++ch)
+			peak = juce::jmax(peak, buffer.getMagnitude(ch, 0, numS));
+		if (peak > 1.0f)
+			buffer.applyGain(1.0f / peak);
+	}
+
 	// Calcolo RMS → dBFS per il meter principale
 	double sumSq = 0.0;
 	const int totalSamples = buffer.getNumSamples() * buffer.getNumChannels();
