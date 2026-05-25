@@ -8,6 +8,8 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+IDI_ICON1 ICON "..\..\icon.ico"
+
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION  1,0,0,0
 BEGIN

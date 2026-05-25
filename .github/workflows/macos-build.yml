@@ -12,6 +12,25 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Create icon.icns from Unito favicon
+        run: |
+          curl -sL "https://cdn.unito.it/unito-loghi/favicon/favicon-32x32.png" -o /tmp/favicon.png
+          mkdir /tmp/favicon.iconset
+          sips -z 16  16  /tmp/favicon.png --out /tmp/favicon.iconset/icon_16x16.png
+          sips -z 32  32  /tmp/favicon.png --out /tmp/favicon.iconset/icon_16x16@2x.png
+          sips -z 32  32  /tmp/favicon.png --out /tmp/favicon.iconset/icon_32x32.png
+          sips -z 64  64  /tmp/favicon.png --out /tmp/favicon.iconset/icon_32x32@2x.png
+          sips -z 128 128 /tmp/favicon.png --out /tmp/favicon.iconset/icon_128x128.png
+          sips -z 256 256 /tmp/favicon.png --out /tmp/favicon.iconset/icon_128x128@2x.png
+          iconutil -c icns /tmp/favicon.iconset -o /tmp/icon.icns
+
+      - name: Patch CFBundleIconFile in Info.plist files
+        run: |
+          PLIST_DIR="Source/dissonanceMeeter/Builds/MacOSX"
+          for plist in Info-Standalone_Plugin.plist Info-AU.plist Info-VST3.plist; do
+            /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile icon" "$PLIST_DIR/$plist"
+          done
+
       - name: Build Audio Unit with Xcode
         run: |
           cd Source/dissonanceMeeter/Builds/MacOSX
@@ -19,6 +38,18 @@ jobs:
             -configuration Release \
             -arch x86_64 \
             HEADER_SEARCH_PATHS='$(inherited) $(SRCROOT)/../../../../ARA_SDK'
+
+      - name: Copy icon into built bundles
+        run: |
+          BUILD="Source/dissonanceMeeter/Builds/MacOSX/build/Release"
+          for bundle in \
+            "dissonanceMeeter.component/Contents/Resources" \
+            "dissonanceMeeter.vst3/Contents/Resources" \
+            "dissonanceMeeter.app/Contents/Resources"; do
+            if [ -d "$BUILD/$bundle" ]; then
+              cp /tmp/icon.icns "$BUILD/$bundle/icon.icns"
+            fi
+          done
 
       - name: Create install instructions
         run: |
