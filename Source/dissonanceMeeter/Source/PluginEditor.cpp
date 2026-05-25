@@ -171,6 +171,7 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 		s->setRotaryParameters(MathConstants<float>::pi * 1.2f,
 			MathConstants<float>::pi * 2.8f, true);
 		s->setTextBoxStyle(Slider::TextBoxBelow, false, 64, 18);
+		s->setNumDecimalPlacesToDisplay(2);
 		s->setColour(Slider::textBoxBackgroundColourId, UiTheme::panelAlt);
 		s->setColour(Slider::textBoxOutlineColourId, UiTheme::grid);
 		s->setColour(Slider::textBoxTextColourId, UiTheme::text);
@@ -183,6 +184,7 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 	aSlider.setRotaryParameters(MathConstants<float>::pi * 1.2f,
 		MathConstants<float>::pi * 2.8f, true);
 	aSlider.setTextBoxStyle(Slider::TextBoxBelow, false, 64, 18);
+	aSlider.setNumDecimalPlacesToDisplay(2);
 	aSlider.setColour(Slider::textBoxBackgroundColourId, UiTheme::panelAlt);
 	aSlider.setColour(Slider::textBoxOutlineColourId, UiTheme::grid);
 	aSlider.setColour(Slider::textBoxTextColourId, UiTheme::text);
@@ -192,6 +194,7 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 	{
 		s->setSliderStyle(Slider::LinearHorizontal);
 		s->setTextBoxStyle(Slider::TextBoxRight, false, 64, 18);
+		s->setNumDecimalPlacesToDisplay(0);
 		s->setRange(20.0, 20000.0, 1.0);
 		s->setSkewFactorFromMidPoint(440.0);
 		s->setColour(Slider::textBoxBackgroundColourId, UiTheme::panelAlt);

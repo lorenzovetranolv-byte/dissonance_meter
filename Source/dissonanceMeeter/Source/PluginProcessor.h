@@ -124,12 +124,12 @@ private:
 		// Frequenza minima della banda: 20..10000 Hz, default 20 Hz (leftmost)
 		params.push_back(std::make_unique<juce::AudioParameterFloat>(
 			"MIN_FREQ", "Min Freq",
-			juce::NormalisableRange<float>(0.0f, 10000.0f, 0.0f, 0.25f), 0.0f));
+			juce::NormalisableRange<float>(0.0f, 10000.0f, 0.01f, 0.25f), 0.0f));
 
 		// Frequenza massima della banda: 20..20000 Hz, default 20000 Hz (fully open)
 		params.push_back(std::make_unique<juce::AudioParameterFloat>(
 			"MAX_FREQ", "Max Freq",
-			juce::NormalisableRange<float>(0.0f, 20000.0f, 0.0f, 0.25f), 0.0f));
+			juce::NormalisableRange<float>(0.0f, 20000.0f, 0.01f, 0.25f), 0.0f));
 
 		return { params.begin(), params.end() };
 	}
@@ -235,7 +235,7 @@ private:
 		std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 		params.push_back(std::make_unique<juce::AudioParameterFloat>(
 			"A", "A (Non-linearity)",
-			juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f, 0.5f), 0.0f));
+			juce::NormalisableRange<float>(0.0f, 100.0f, 0.01f, 0.5f), 0.0f));
 		return { params.begin(), params.end() };
 	}
 
