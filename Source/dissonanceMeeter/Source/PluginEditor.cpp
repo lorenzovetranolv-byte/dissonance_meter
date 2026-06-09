@@ -171,6 +171,7 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 		s->setRotaryParameters(MathConstants<float>::pi * 1.2f,
 			MathConstants<float>::pi * 2.8f, true);
 		s->setTextBoxStyle(Slider::TextBoxBelow, false, 64, 18);
+		s->setNumDecimalPlacesToDisplay(2);
 		s->setColour(Slider::textBoxBackgroundColourId, UiTheme::panelAlt);
 		s->setColour(Slider::textBoxOutlineColourId, UiTheme::grid);
 		s->setColour(Slider::textBoxTextColourId, UiTheme::text);
@@ -183,6 +184,7 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 	aSlider.setRotaryParameters(MathConstants<float>::pi * 1.2f,
 		MathConstants<float>::pi * 2.8f, true);
 	aSlider.setTextBoxStyle(Slider::TextBoxBelow, false, 64, 18);
+	aSlider.setNumDecimalPlacesToDisplay(2);
 	aSlider.setColour(Slider::textBoxBackgroundColourId, UiTheme::panelAlt);
 	aSlider.setColour(Slider::textBoxOutlineColourId, UiTheme::grid);
 	aSlider.setColour(Slider::textBoxTextColourId, UiTheme::text);
@@ -192,6 +194,7 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 	{
 		s->setSliderStyle(Slider::LinearHorizontal);
 		s->setTextBoxStyle(Slider::TextBoxRight, false, 64, 18);
+		s->setNumDecimalPlacesToDisplay(0);
 		s->setRange(20.0, 20000.0, 1.0);
 		s->setSkewFactorFromMidPoint(440.0);
 		s->setColour(Slider::textBoxBackgroundColourId, UiTheme::panelAlt);
@@ -504,20 +507,22 @@ void DissonanceMeeterAudioProcessorEditor::resized()
 	// ---- OSCILLATORS section (below parameters, full right width) ----
 	{
 		auto inner = sectionOsc.reduced(pad);
-		const int oscSliderW = inner.getWidth() - UiTheme::oscLabelW - btnW * 2 - pad;
+		const int oscBtnW  = 28;   // wider than generic smallBtn so "+" text is not clipped
+		const int btnGap   = 6;    // gap between slider textbox and the minus button
+		const int oscSliderW = inner.getWidth() - UiTheme::oscLabelW - oscBtnW * 2 - pad - btnGap;
 		const int rowGap = 10;
 		const int row1Y = inner.getY() + titleH + 4;
 
 		osc1Label.setBounds(inner.getX(), row1Y, UiTheme::oscLabelW, labelH);
 		oscFreq1Slider.setBounds(inner.getX() + UiTheme::oscLabelW, row1Y, oscSliderW, 24);
-		oscFreq1Minus.setBounds(inner.getRight() - btnW * 2 - pad, row1Y, btnW, 24);
-		oscFreq1Plus.setBounds(inner.getRight() - btnW, row1Y, btnW, 24);
+		oscFreq1Minus.setBounds(inner.getRight() - oscBtnW * 2 - pad, row1Y, oscBtnW, 24);
+		oscFreq1Plus.setBounds(inner.getRight() - oscBtnW, row1Y, oscBtnW, 24);
 
 		const int row2Y = row1Y + 24 + rowGap;
 		osc2Label.setBounds(inner.getX(), row2Y, UiTheme::oscLabelW, labelH);
 		oscFreq2Slider.setBounds(inner.getX() + UiTheme::oscLabelW, row2Y, oscSliderW, 24);
-		oscFreq2Minus.setBounds(inner.getRight() - btnW * 2 - pad, row2Y, btnW, 24);
-		oscFreq2Plus.setBounds(inner.getRight() - btnW, row2Y, btnW, 24);
+		oscFreq2Minus.setBounds(inner.getRight() - oscBtnW * 2 - pad, row2Y, oscBtnW, 24);
+		oscFreq2Plus.setBounds(inner.getRight() - oscBtnW, row2Y, oscBtnW, 24);
 	}
 
 	// ---- Waveform: below the title strip in the viz card ----
