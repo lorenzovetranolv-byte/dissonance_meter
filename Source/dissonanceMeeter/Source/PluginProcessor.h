@@ -223,7 +223,7 @@ public:
 				float* data = buffer.getWritePointer(ch);
 				const float input = data[i]; // clean signal (forcing term)
 
-				// ── ODE numerical integration (Explicit Euler) ──────────────
+				// ── ODE numerical integration (Euler-Cromer / semi-implicit) ──────────────
 				// x''(t) = f(t) - 60·x'(t) - 900·x(t) - A·x²(t)
 				const float xDotDot = input 
 					- damping * xDot[ch] 
