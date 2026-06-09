@@ -160,12 +160,23 @@ private:
 };
 
 //==============================================================================
-// Distortion: Duffing-derived even-harmonic waveshaper
+// Distortion: Nonlinear damped harmonic oscillator (ODE-based intermodulation)
 //
-//   y = (in + k*in²) / (1+k)   k = A/100  →  adds 2nd harmonic (x² from ODE)
-//   DC bias from in² is removed by a slow LP tracker.
-//   Soft saturation blends linearly with tanh proportional to k.
-//   A=0 → clean pass-through, A=100 → heavy even-harmonic distortion.
+// Differential equation: x'' + 60·x' + 900·x + A·x² = f(t)
+//   - f(t) = input signal (forcing term)
+//   - x(t) = oscillator position (output)
+//   - x'(t) = oscillator velocity (state)
+//   - A = nonlinearity parameter (0-5000)
+//
+// Physical model: resonant system with:
+//   - ω₀ = 30 rad/s (natural freq ~4.77 Hz, subharmonic resonance)
+//   - ζ = 1 (critical damping)
+//   - Ax² term generates intermodulation products and beating
+//
+// Processing: Parallel mix of clean signal + ODE output
+//   - A=0 → bypass (100% clean signal, no ODE contribution)
+//   - A>0 → blend clean + ODE nonlinear response (battimenti/intermodulation)
+//   - Output compensated (×900) to match input level at low frequencies
 //==============================================================================
 class Distortion : public ProcessorBase
 {
@@ -174,12 +185,14 @@ public:
 
 	void prepareToPlay(double sampleRate, int samplesPerBlock) override
 	{
-		currentSampleRate = static_cast<float> (sampleRate);
+		currentSampleRate = static_cast<float>(sampleRate);
+		dt = 1.0f / static_cast<float>(sampleRate); // time step for Euler integration
 		drive.reset(sampleRate, 0.02);
 		(void)samplesPerBlock;
 
 		const int channels = juce::jmax(1, getTotalNumOutputChannels());
-		xState.assign(channels, 0.0f);  // DC tracker per channel
+		x.assign(channels, 0.0f);      // oscillator position per channel
+		xDot.assign(channels, 0.0f);   // oscillator velocity per channel
 	}
 
 	void processBlock(juce::AudioSampleBuffer& buffer, juce::MidiBuffer&) override
@@ -189,45 +202,62 @@ public:
 		const int numChannels = buffer.getNumChannels();
 		const int numSamples  = buffer.getNumSamples();
 
-		if ((int)xState.size() < numChannels)
-			xState.resize(numChannels, 0.0f);
+		if ((int)x.size() < numChannels)
+		{
+			x.resize(numChannels, 0.0f);
+			xDot.resize(numChannels, 0.0f);
+		}
+
+		// ODE coefficients (fixed by psychoacoustic model)
+		constexpr float damping = 60.0f;     // smorzamento
+		constexpr float stiffness = 900.0f;  // rigidezza (ω₀² = 900 → ω₀ = 30 rad/s)
+		constexpr float gainComp = stiffness; // compensate DC attenuation (1/stiffness)
 
 		for (int i = 0; i < numSamples; ++i)
 		{
 			const float A = drive.getNextValue();
-			const float k = A / 100.0f;  // normalised non-linearity [0, 1]
+			const float wet = juce::jlimit(0.0f, 1.0f, A / 5000.0f); // wet mix ratio [0,1]
 
 			for (int ch = 0; ch < numChannels; ++ch)
 			{
 				float* data = buffer.getWritePointer(ch);
-				const float in = data[i];
+				const float input = data[i]; // clean signal (forcing term)
 
-				// Duffing-derived even-harmonic distortion: y = in + k*in²
-				// The x² term (as in the ODE) generates the 2nd harmonic.
-				// Pre-normalised so |out| stays bounded when |in| ≤ 1.
-				float out = (in + k * in * in) / (1.0f + k);
+				// ── ODE numerical integration (Explicit Euler) ──────────────
+				// x''(t) = f(t) - 60·x'(t) - 900·x(t) - A·x²(t)
+				const float xDotDot = input 
+					- damping * xDot[ch] 
+					- stiffness * x[ch] 
+					- A * x[ch] * x[ch]; // nonlinearity → intermodulation
 
-				// Remove DC bias introduced by the even-power term
-				float& dc = xState[ch];
-				dc += (out - dc) * 5.0e-4f;  // ~3.5 Hz LP tracker
-				out -= dc;
+				// x'(t) = x'(t-1) + x''(t-1) · dt
+				xDot[ch] += xDotDot * dt;
 
-				// Soft saturation: linear at k=0, tanh at k=1 — no hard jlimit
-				data[i] = out + k * (std::tanh(out) - out);
+				// x(t) = x(t-1) + x'(t-1) · dt
+				x[ch] += xDot[ch] * dt;
+
+				// ── Parallel Processing: clean + ODE ────────────────────────
+				// Amplify ODE output to match input level at low freq
+				const float odeOut = x[ch] * gainComp;
+
+				// A=0 → 100% input (bypass)
+				// A>0 → blend input + ODE distorted signal
+				data[i] = input * (1.0f - wet) + odeOut * wet;
 			}
 		}
 	}
 
 	void reset() override
 	{
-		std::fill(xState.begin(), xState.end(), 0.0f);
+		std::fill(x.begin(), x.end(), 0.0f);
+		std::fill(xDot.begin(), xDot.end(), 0.0f);
 		drive.reset(currentSampleRate > 0.0f ? currentSampleRate : 44100.0, 0.02);
 	}
 
 	const juce::String getName() const override { return "Distortion"; }
 
 	juce::AudioProcessorValueTreeState treeState;
-	juce::LinearSmoothedValue<float> drive{ 0.0f }; // parametro A
+	juce::LinearSmoothedValue<float> drive{ 0.0f }; // parametro A (nonlinearity)
 
 private:
 	juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
@@ -235,12 +265,14 @@ private:
 		std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 		params.push_back(std::make_unique<juce::AudioParameterFloat>(
 			"A", "A (Non-linearity)",
-			juce::NormalisableRange<float>(0.0f, 100.0f, 0.01f, 0.5f), 0.0f));
+			juce::NormalisableRange<float>(0.0f, 5000.0f, 0.1f, 0.5f), 0.0f));
 		return { params.begin(), params.end() };
 	}
 
 	float currentSampleRate = 44100.0f;
-	std::vector<float> xState;  // per-channel DC tracker
+	float dt = 1.0f / 44100.0f; // time step for integration
+	std::vector<float> x;       // oscillator position per channel
+	std::vector<float> xDot;    // oscillator velocity per channel
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Distortion)
 };
