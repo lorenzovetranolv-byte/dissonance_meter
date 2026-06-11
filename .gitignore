@@ -132,4 +132,7 @@ node_modules/
 # Windows resource compiler output (regenerated on each build) --------------------
 resources.res
 
+# Auto-incrementing build number header (regenerated on each build) ---------------
+Source/dissonanceMeeter/Source/BuildNumber.h
+
 # End of file
