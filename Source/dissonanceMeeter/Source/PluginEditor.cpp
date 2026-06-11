@@ -8,6 +8,7 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "BuildNumber.h"
 
 namespace
 {
@@ -296,11 +297,20 @@ void DissonanceMeeterAudioProcessorEditor::paint(juce::Graphics& g)
 	g.setColour(UiTheme::text);
 	g.setFont(juce::Font(juce::FontOptions().withHeight(16.0f).withStyle("Bold")));
 	g.drawText("dissonanceMeeter", header, juce::Justification::centredLeft);
+
+	auto rightHeader = header.removeFromRight(180);
+	auto modeRow = rightHeader.removeFromTop(rightHeader.getHeight() / 2);
+	auto versionRow = rightHeader;
+
 	g.setFont(juce::Font(juce::FontOptions().withHeight(12.0f)));
 	g.setColour(UiTheme::textDim);
 	g.drawText(audioProcessor.getInputMode() == DissonanceMeeterAudioProcessor::InputMode::ExternalInput
 		? "External Input" : "Internal Oscillator",
-		header.removeFromRight(170), juce::Justification::centredRight);
+		modeRow, juce::Justification::centredRight);
+
+	g.setFont(juce::Font(juce::FontOptions().withHeight(9.0f)));
+	g.drawText("v" JucePlugin_VersionString " (build " + juce::String(BUILD_NUMBER) + ")",
+		versionRow, juce::Justification::centredRight);
 
 	auto drawCard = [&g](juce::Rectangle<int> area)
 		{

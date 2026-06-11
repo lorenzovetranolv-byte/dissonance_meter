@@ -168,10 +168,15 @@ private:
 //   - x'(t) = oscillator velocity (state)
 //   - A = nonlinearity parameter (0-5000)
 //
+// Numerical solution (explicit Euler), per sample of length dt:
+//   x''(t-1) = f(t) - 60·x'(t-1) - 900·x(t-1) - A·x²(t-1)
+//   x'(t)    = x'(t-1) + x''(t-1) · dt
+//   x(t)     = x(t-1)  + x'(t-1)  · dt
+//
 // Physical model: resonant system with:
 //   - ω₀ = 30 rad/s (natural freq ~4.77 Hz, subharmonic resonance)
 //   - ζ = 1 (critical damping)
-//   - Ax² term generates intermodulation products and beating
+//   - A·x² term generates intermodulation products and beating
 //
 // Processing: Parallel mix of clean signal + ODE output
 //   - A=0 → bypass (100% clean signal, no ODE contribution)
@@ -223,18 +228,26 @@ public:
 				float* data = buffer.getWritePointer(ch);
 				const float input = data[i]; // clean signal (forcing term)
 
-				// ── ODE numerical integration (Euler-Cromer / semi-implicit) ──────────────
-				// x''(t) = f(t) - 60·x'(t) - 900·x(t) - A·x²(t)
-				const float xDotDot = input 
-					- damping * xDot[ch] 
-					- stiffness * x[ch] 
-					- A * x[ch] * x[ch]; // nonlinearity → intermodulation
+				// ── ODE numerical integration (Explicit Euler) ──────────────
+				// x''(t-1) = f(t) - 60·x'(t-1) - 900·x(t-1) - A·x²(t-1)
+				const float xPrev    = x[ch];
+				const float xDotPrev = xDot[ch];
+				const float xDotDot = input
+					- damping * xDotPrev
+					- stiffness * xPrev
+					- A * xPrev * xPrev; // nonlinearity → intermodulation
 
 				// x'(t) = x'(t-1) + x''(t-1) · dt
-				xDot[ch] += xDotDot * dt;
+				xDot[ch] = xDotPrev + xDotDot * dt;
 
 				// x(t) = x(t-1) + x'(t-1) · dt
-				x[ch] += xDot[ch] * dt;
+				x[ch] = xPrev + xDotPrev * dt;
+
+				// Numerical-stability safety bounds: with A up to 5000 the
+				// -A·x² term can overwhelm the linear restoring force and
+				// drive explicit Euler to diverge. Clamp state, not the ODE.
+				x[ch]    = juce::jlimit (-2.0f,   2.0f,   x[ch]);
+				xDot[ch] = juce::jlimit (-200.0f, 200.0f, xDot[ch]);
 
 				// ── Parallel Processing: clean + ODE ────────────────────────
 				// Amplify ODE output to match input level at low freq
