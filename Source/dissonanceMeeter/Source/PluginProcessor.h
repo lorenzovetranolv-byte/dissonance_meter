@@ -77,12 +77,20 @@ public:
 		{
 			updateCoefficients(); // avanza smoother di 1 campione
 
+			float monoSum = 0.0f;
 			for (int ch = 0; ch < numChannels; ++ch)
 			{
 				float* data = buffer.getWritePointer(ch);
 				// Processa un singolo campione per canale
 				data[i] = filters[ch].processSample(data[i]); // ← sample by sample
+				monoSum += data[i];
 			}
+
+			// Dissonance is measured on the band-pass filtered signal: with the
+			// chain ordered Distortion -> BandPass, this is the final processed
+			// signal, not the raw (unfiltered) distortion output.
+			if (dissonanceAnalyser != nullptr && numChannels > 0)
+				dissonanceAnalyser->pushSample(monoSum / (float)numChannels);
 		}
 
 		// 3. RMS sul mid channel per la misurazione
@@ -112,6 +120,11 @@ public:
 	// Leggi l'intensità della banda dal processore / editor
 	float getBandIntensityDb() const noexcept { return bandIntensityDb.load(); }
 
+	// Collega l'analizzatore di dissonanza: il bandpass (ultimo stadio della
+	// catena Distortion -> BandPass) alimenta il dissonance meter con il
+	// segnale finale filtrato.
+	void setDissonanceAnalyser(DissonanceAnalyser* analyser) noexcept { dissonanceAnalyser = analyser; }
+
 	juce::AudioProcessorValueTreeState treeState;
 	juce::LinearSmoothedValue<float> minFreqSmooth{ 0.0f };
 	juce::LinearSmoothedValue<float> maxFreqSmooth{ 0.0f };
@@ -121,30 +134,29 @@ private:
 	{
 		std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-		// Frequenza minima della banda: 20..10000 Hz, default 20 Hz (leftmost)
+		// Frequenza minima della banda: 10..100 Hz, default 20 Hz
 		params.push_back(std::make_unique<juce::AudioParameterFloat>(
 			"MIN_FREQ", "Min Freq",
-			juce::NormalisableRange<float>(0.0f, 10000.0f, 0.01f, 0.25f), 0.0f));
+			juce::NormalisableRange<float>(10.0f, 100.0f, 0.01f, 0.5f), 20.0f));
 
-		// Frequenza massima della banda: 20..20000 Hz, default 20000 Hz (fully open)
+		// Frequenza massima della banda: 30..20000 Hz, default 2000 Hz
 		params.push_back(std::make_unique<juce::AudioParameterFloat>(
 			"MAX_FREQ", "Max Freq",
-			juce::NormalisableRange<float>(0.0f, 20000.0f, 0.01f, 0.25f), 0.0f));
+			juce::NormalisableRange<float>(30.0f, 20000.0f, 0.01f, 0.25f), 2000.0f));
 
 		return { params.begin(), params.end() };
 	}
 
 	void updateCoefficients()
 	{
-		float minF = juce::jlimit(0.0f, 10000.0f, minFreqSmooth.getNextValue());
-		float maxF = juce::jlimit(minF + 1.0f, 20000.0f, maxFreqSmooth.getNextValue());
+		float minF = juce::jlimit(10.0f, 100.0f, minFreqSmooth.getNextValue());
+		float maxF = juce::jlimit(30.0f, 20000.0f, maxFreqSmooth.getNextValue());
 
-		// makeBandPass requires center > 0; clamp to 20 Hz minimum to prevent NaN
-		const float minFeff = juce::jmax(20.0f, minF);
-		const float maxFeff = juce::jmax(minFeff + 1.0f, maxF);
-		const float center  = std::sqrt(minFeff * maxFeff);
-		const float bw      = maxFeff - minFeff;
-		const float q       = juce::jlimit(0.1f, 30.0f, center / bw);
+		// Center frequency is fixed at 30 Hz (not derived geometrically from the
+		// band edges); only the Q factor is derived from center + bandwidth.
+		const float center = 30.0f;
+		const float bw     = juce::jmax(1.0f, maxF - minF);
+		const float q      = juce::jlimit(0.1f, 30.0f, center / bw);
 
 		for (auto& f : filters)
 			*f.coefficients = *juce::dsp::IIR::Coefficients<float>::makeBandPass(
@@ -154,6 +166,8 @@ private:
 	float currentSampleRate = 44100.0f;
 	std::atomic<float> bandIntensityDb{ -100.0f };
 
+	DissonanceAnalyser* dissonanceAnalyser = nullptr;
+
 	std::vector<juce::dsp::IIR::Filter<float>> filters;
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BandPassFilter)
@@ -162,26 +176,27 @@ private:
 //==============================================================================
 // Distortion: Nonlinear damped harmonic oscillator (ODE-based intermodulation)
 //
-// Differential equation: x'' + 60·x' + 900·x + A·x² = f(t)
+// Differential equation: x'' + damping·x' + stiffness·x + A·x² = f(t)
 //   - f(t) = input signal (forcing term)
 //   - x(t) = oscillator position (output)
 //   - x'(t) = oscillator velocity (state)
 //   - A = nonlinearity parameter (0-5000)
 //
 // Numerical solution (explicit Euler), per sample of length dt:
-//   x''(t-1) = f(t) - 60·x'(t-1) - 900·x(t-1) - A·x²(t-1)
+//   x''(t-1) = f(t) - damping·x'(t-1) - stiffness·x(t-1) - A·x²(t-1)
 //   x'(t)    = x'(t-1) + x''(t-1) · dt
 //   x(t)     = x(t-1)  + x'(t-1)  · dt
 //
 // Physical model: resonant system with:
-//   - ω₀ = 30 rad/s (natural freq ~4.77 Hz, subharmonic resonance)
-//   - ζ = 1 (critical damping)
+//   - γ = ω = GAMMA_OMEGA parameter, expressed in Hz (1-200, default 30 Hz),
+//     converted to angular frequency ω₀ = 2π·f (rad/s) for the ODE terms;
+//     critically damped (ζ = 1) → damping = 2·ω₀, stiffness = ω₀²
 //   - A·x² term generates intermodulation products and beating
 //
 // Processing: Parallel mix of clean signal + ODE output
 //   - A=0 → bypass (100% clean signal, no ODE contribution)
 //   - A>0 → blend clean + ODE nonlinear response (battimenti/intermodulation)
-//   - Output compensated (×900) to match input level at low frequencies
+//   - Output compensated (×stiffness) to match input level at low frequencies
 //==============================================================================
 class Distortion : public ProcessorBase
 {
@@ -193,6 +208,8 @@ public:
 		currentSampleRate = static_cast<float>(sampleRate);
 		dt = 1.0f / static_cast<float>(sampleRate); // time step for Euler integration
 		drive.reset(sampleRate, 0.02);
+		gammaOmega.reset(sampleRate, 0.02);
+		gammaOmega.setTargetValue(*treeState.getRawParameterValue("GAMMA_OMEGA"));
 		(void)samplesPerBlock;
 
 		const int channels = juce::jmax(1, getTotalNumOutputChannels());
@@ -203,6 +220,7 @@ public:
 	void processBlock(juce::AudioSampleBuffer& buffer, juce::MidiBuffer&) override
 	{
 		drive.setTargetValue(*treeState.getRawParameterValue("A"));
+		gammaOmega.setTargetValue(*treeState.getRawParameterValue("GAMMA_OMEGA"));
 
 		const int numChannels = buffer.getNumChannels();
 		const int numSamples  = buffer.getNumSamples();
@@ -213,15 +231,20 @@ public:
 			xDot.resize(numChannels, 0.0f);
 		}
 
-		// ODE coefficients (fixed by psychoacoustic model)
-		constexpr float damping = 60.0f;     // smorzamento
-		constexpr float stiffness = 900.0f;  // rigidezza (ω₀² = 900 → ω₀ = 30 rad/s)
-		constexpr float gainComp = stiffness; // compensate DC attenuation (1/stiffness)
-
 		for (int i = 0; i < numSamples; ++i)
 		{
 			const float A = drive.getNextValue();
 			const float wet = juce::jlimit(0.0f, 1.0f, A / 5000.0f); // wet mix ratio [0,1]
+
+			// GAMMA_OMEGA is expressed in Hz (consistent with BandPassFilter and
+			// DissonanceAnalyser, which are also Hz-denominated); convert to the
+			// angular frequency ω₀ (rad/s) used by the ODE's natural-frequency terms.
+			// γ = ω (critically damped, ζ = 1): damping = 2·ω₀, stiffness = ω₀²
+			const float gammaOmegaHz = gammaOmega.getNextValue();
+			const float omega        = juce::MathConstants<float>::twoPi * gammaOmegaHz;
+			const float damping      = 2.0f * omega;
+			const float stiffness    = omega * omega;
+			const float gainComp     = stiffness; // compensate DC attenuation (1/stiffness)
 
 			for (int ch = 0; ch < numChannels; ++ch)
 			{
@@ -229,7 +252,7 @@ public:
 				const float input = data[i]; // clean signal (forcing term)
 
 				// ── ODE numerical integration (Explicit Euler) ──────────────
-				// x''(t-1) = f(t) - 60·x'(t-1) - 900·x(t-1) - A·x²(t-1)
+				// x''(t-1) = f(t) - damping·x'(t-1) - stiffness·x(t-1) - A·x²(t-1)
 				const float xPrev    = x[ch];
 				const float xDotPrev = xDot[ch];
 				const float xDotDot = input
@@ -265,12 +288,14 @@ public:
 		std::fill(x.begin(), x.end(), 0.0f);
 		std::fill(xDot.begin(), xDot.end(), 0.0f);
 		drive.reset(currentSampleRate > 0.0f ? currentSampleRate : 44100.0, 0.02);
+		gammaOmega.reset(currentSampleRate > 0.0f ? currentSampleRate : 44100.0, 0.02);
 	}
 
 	const juce::String getName() const override { return "Distortion"; }
 
 	juce::AudioProcessorValueTreeState treeState;
-	juce::LinearSmoothedValue<float> drive{ 0.0f }; // parametro A (nonlinearity)
+	juce::LinearSmoothedValue<float> drive{ 0.0f };      // parametro A (nonlinearity)
+	juce::LinearSmoothedValue<float> gammaOmega{ 30.0f }; // parametro γ = ω
 
 private:
 	juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
@@ -279,6 +304,9 @@ private:
 		params.push_back(std::make_unique<juce::AudioParameterFloat>(
 			"A", "A (Non-linearity)",
 			juce::NormalisableRange<float>(0.0f, 5000.0f, 0.1f, 0.5f), 0.0f));
+		params.push_back(std::make_unique<juce::AudioParameterFloat>(
+			"GAMMA_OMEGA", "Gamma/Omega",
+			juce::NormalisableRange<float>(1.0f, 200.0f, 0.1f, 0.5f), 30.0f));
 		return { params.begin(), params.end() };
 	}
 

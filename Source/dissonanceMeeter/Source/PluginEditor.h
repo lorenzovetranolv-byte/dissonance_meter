@@ -54,6 +54,10 @@ private:
 	juce::Label  aLabel;
 	std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> aAttachment;
 
+	juce::Slider gammaOmegaSlider; // GAMMA_OMEGA (γ = ω)
+	juce::Label  gammaOmegaLabel;
+	std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> gammaOmegaAttachment;
+
 	// --- Oscillatori ---
 	juce::Slider oscFreq1Slider;
 	juce::Slider oscFreq2Slider;

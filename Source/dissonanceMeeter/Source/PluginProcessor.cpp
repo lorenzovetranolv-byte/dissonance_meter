@@ -159,7 +159,13 @@ void DissonanceMeeterAudioProcessor::initialiseGraph()
 	if (audioInputNode == nullptr)
 		audioInputNode = mainProcessor->addNode(std::make_unique<AudioGraphIOProcessor>(AudioGraphIOProcessor::audioInputNode));
 	if (bandPassNode == nullptr)
+	{
 		bandPassNode = mainProcessor->addNode(std::make_unique<BandPassFilter>());
+		// Dissonance is measured on the band-pass filtered signal — the last
+		// stage of the chain (Distortion -> BandPass) — not on the raw,
+		// unfiltered distortion output.
+		static_cast<BandPassFilter*>(bandPassNode->getProcessor())->setDissonanceAnalyser(&dissonanceAnalyser);
+	}
 	if (distortionNode == nullptr)
 		distortionNode = mainProcessor->addNode(std::make_unique<Distortion>());
 	if (audioOutputNode == nullptr)
@@ -171,12 +177,12 @@ void DissonanceMeeterAudioProcessor::connectAudioNodes()
 	for (auto* node : mainProcessor->getNodes())
 		node->getProcessor()->enableAllBuses();
 
-	// Stereo: Input -> BandPass -> Distortion -> Output
+	// Stereo: Input -> Distortion -> BandPass -> Output
 	for (int ch = 0; ch < juce::jmin(2, numOutputChannels); ++ch)
 	{
-		mainProcessor->addConnection({ { audioInputNode->nodeID,  ch }, { bandPassNode->nodeID,   ch } });
-		mainProcessor->addConnection({ { bandPassNode->nodeID,    ch }, { distortionNode->nodeID, ch } });
-		mainProcessor->addConnection({ { distortionNode->nodeID,  ch }, { audioOutputNode->nodeID,ch } });
+		mainProcessor->addConnection({ { audioInputNode->nodeID,  ch }, { distortionNode->nodeID, ch } });
+		mainProcessor->addConnection({ { distortionNode->nodeID,  ch }, { bandPassNode->nodeID,   ch } });
+		mainProcessor->addConnection({ { bandPassNode->nodeID,    ch }, { audioOutputNode->nodeID,ch } });
 	}
 
 }
@@ -253,7 +259,7 @@ void DissonanceMeeterAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
 		if (peak > 1e-6f)
 			buffer.applyGain(1.0f / peak);
 
-		// Applica la catena BandPass → Distortion anche all'oscillatore
+		// Applica la catena Distortion → BandPass anche all'oscillatore
 		if (mainProcessor != nullptr)
 			mainProcessor->processBlock(buffer, midiMessages);
 	}
@@ -290,20 +296,6 @@ void DissonanceMeeterAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
 	updateOutputLevelRms(dbfs);
 
 	waveForm.pushBuffer(buffer);
-
-	// Feed mono mix to dissonance analyser (post-chain, post-gain)
-	{
-		const int numS = buffer.getNumSamples();
-		const int numC = buffer.getNumChannels();
-		for (int i = 0; i < numS; ++i)
-		{
-			float mono = 0.0f;
-			for (int ch = 0; ch < numC; ++ch)
-				mono += buffer.getReadPointer(ch)[i];
-			if (numC > 0) mono /= (float)numC;
-			dissonanceAnalyser.pushSample(mono);
-		}
-	}
 }
 
 //==============================================================================

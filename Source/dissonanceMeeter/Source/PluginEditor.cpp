@@ -190,6 +190,17 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 	aSlider.setColour(Slider::textBoxOutlineColourId, UiTheme::grid);
 	aSlider.setColour(Slider::textBoxTextColourId, UiTheme::text);
 
+	gammaOmegaAttachment = std::make_unique<AudioProcessorValueTreeState::SliderAttachment>(
+		distortionProcessor.treeState, "GAMMA_OMEGA", gammaOmegaSlider);
+	gammaOmegaSlider.setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
+	gammaOmegaSlider.setRotaryParameters(MathConstants<float>::pi * 1.2f,
+		MathConstants<float>::pi * 2.8f, true);
+	gammaOmegaSlider.setTextBoxStyle(Slider::TextBoxBelow, false, 64, 18);
+	gammaOmegaSlider.setNumDecimalPlacesToDisplay(2);
+	gammaOmegaSlider.setColour(Slider::textBoxBackgroundColourId, UiTheme::panelAlt);
+	gammaOmegaSlider.setColour(Slider::textBoxOutlineColourId, UiTheme::grid);
+	gammaOmegaSlider.setColour(Slider::textBoxTextColourId, UiTheme::text);
+
 	// --- Oscillatori ---
 	for (auto* s : { &oscFreq1Slider, &oscFreq2Slider })
 	{
@@ -254,6 +265,7 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 	setupLabel(minFreqLabel, "FREQ MIN", Justification::centred);
 	setupLabel(maxFreqLabel, "FREQ MAX", Justification::centred);
 	setupLabel(aLabel, "NONLINEARITY", Justification::centred);
+	setupLabel(gammaOmegaLabel, "GAMMA / OMEGA", Justification::centred);
 	setupLabel(osc1Label, "OSC 1 (Hz)", Justification::centredLeft);
 	setupLabel(osc2Label, "OSC 2 (Hz)", Justification::centredLeft);
 	setupLabel(masterGainLabel, "MASTER GAIN", Justification::centredLeft);
@@ -266,6 +278,7 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 	addAndMakeVisible(minFreqSlider);  addAndMakeVisible(minFreqLabel);
 	addAndMakeVisible(maxFreqSlider);  addAndMakeVisible(maxFreqLabel);
 	addAndMakeVisible(aSlider);        addAndMakeVisible(aLabel);
+	addAndMakeVisible(gammaOmegaSlider); addAndMakeVisible(gammaOmegaLabel);
 	addAndMakeVisible(oscFreq1Slider); addAndMakeVisible(osc1Label);
 	addAndMakeVisible(oscFreq2Slider); addAndMakeVisible(osc2Label);
 	addAndMakeVisible(oscFreq1Minus);  addAndMakeVisible(oscFreq1Plus);
@@ -508,10 +521,12 @@ void DissonanceMeeterAudioProcessorEditor::resized()
 		minFreqLabel.setBounds(inner.getX(), labelY, knobSize, labelH);
 		maxFreqLabel.setBounds(inner.getX() + (knobSize + pad), labelY, knobSize, labelH);
 		aLabel.setBounds(inner.getX() + (knobSize + pad) * 2, labelY, knobSize, labelH);
+		gammaOmegaLabel.setBounds(inner.getX() + (knobSize + pad) * 3, labelY, knobSize, labelH);
 
 		minFreqSlider.setBounds(inner.getX(), sliderY, knobSize, knobSize);
 		maxFreqSlider.setBounds(inner.getX() + (knobSize + pad), sliderY, knobSize, knobSize);
 		aSlider.setBounds(inner.getX() + (knobSize + pad) * 2, sliderY, knobSize, knobSize);
+		gammaOmegaSlider.setBounds(inner.getX() + (knobSize + pad) * 3, sliderY, knobSize, knobSize);
 	}
 
 	// ---- OSCILLATORS section (below parameters, full right width) ----
