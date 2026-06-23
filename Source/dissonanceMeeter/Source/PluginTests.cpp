@@ -409,7 +409,7 @@ public:
 
             auto* minP = filter.treeState.getParameter ("MIN_FREQ");
             auto* maxP = filter.treeState.getParameter ("MAX_FREQ");
-            if (minP) minP->setValueNotifyingHost (minP->convertTo0to1 (200.0f));
+            if (minP) minP->setValueNotifyingHost (minP->convertTo0to1 (20.0f));
             if (maxP) maxP->setValueNotifyingHost (maxP->convertTo0to1 (2000.0f));
 
             juce::AudioBuffer<float> buf (1, blockSize);
@@ -445,25 +445,26 @@ public:
             return (inRms > 1e-9f) ? (outRms / inRms) : 0.0f;
         };
 
-        beginTest ("1 kHz (in banda) deve passare con perdita < 6 dB (ratio > 0.5)");
+        // La frequenza centrale del bandpass e' fissa a 30 Hz: un tono a 30 Hz
+        // deve passare con perdita contenuta.
+        beginTest ("30 Hz (frequenza centrale fissa) deve passare con perdita < 6 dB (ratio > 0.5)");
         {
-            float ratio = measureRatio (1000.0f);
-            expect (ratio > 0.5f, "1 kHz ratio = " + juce::String (ratio) + " (atteso > 0.5)");
+            float ratio = measureRatio (30.0f);
+            expect (ratio > 0.5f, "30 Hz ratio = " + juce::String (ratio) + " (atteso > 0.5)");
         }
 
-        // Un BPF del 2° ordine attenua a 20 dB/decade sotto la frequenza di taglio inferiore.
-        // A 50 Hz (fattore 4 sotto i 200 Hz), l'attenuazione teorica e' ~12 dB (ratio ~0.25).
-        // Il test verifica che l'attenuazione fuori banda sia chiaramente inferiore alla banda passante.
-        beginTest ("50 Hz (fuori banda) deve essere attenuato rispetto a 1 kHz (ratio < 0.4)");
+        // 1 kHz e' lontano dalla frequenza centrale fissa (30 Hz) e deve essere
+        // chiaramente attenuato rispetto alla banda passante.
+        beginTest ("1 kHz (lontano dal centro a 30 Hz) deve essere attenuato rispetto a 30 Hz (ratio < 0.4)");
         {
-            float ratio = measureRatio (50.0f);
-            expect (ratio < 0.4f, "50 Hz ratio = " + juce::String (ratio) + " (atteso < 0.4)");
+            float ratio = measureRatio (1000.0f);
+            expect (ratio < 0.4f, "1 kHz ratio = " + juce::String (ratio) + " (atteso < 0.4)");
         }
     }
 };
 
 //==============================================================================
-// TEST 12 - Catena completa: BandPass + Distortion + DissonanceAnalyser
+// TEST 12 - Catena completa: Distortion + BandPass + DissonanceAnalyser
 //
 // Verifica che la catena ordini gli intervalli correttamente senza istanziare
 // DissonanceMeeterAudioProcessor (il cui costruttore auto-esegue i test in Debug
@@ -473,7 +474,7 @@ class ProcessorChainDissonanceTest : public juce::UnitTest
 {
 public:
     ProcessorChainDissonanceTest()
-        : juce::UnitTest ("Chain - Ordinamento dissonanza (BP+Dist+Analyser)", "DissonanceMeeter") {}
+        : juce::UnitTest ("Chain - Ordinamento dissonanza (Dist+BP+Analyser)", "DissonanceMeeter") {}
 
     void runTest() override
     {
@@ -512,8 +513,8 @@ public:
                     if (phase2 > juce::MathConstants<double>::twoPi) phase2 -= juce::MathConstants<double>::twoPi;
                 }
 
-                bp.processBlock   (buf, midi);
                 dist.processBlock (buf, midi);
+                bp.processBlock   (buf, midi);
 
                 const float* data = buf.getReadPointer (0);
                 for (int i = 0; i < blockSize; ++i)
