@@ -38,11 +38,11 @@ public:
 			f.reset();
 		}
 
-		minFreqSmooth.reset(sampleRate, 0.02);
-		maxFreqSmooth.reset(sampleRate, 0.02);
+		centerFreqSmooth.reset(sampleRate, 0.02);
+		qFactorSmooth.reset(sampleRate, 0.02);
 		// Imposta i target dagli attuali valori dei parametri prima di calcolare i coefficienti
-		minFreqSmooth.setTargetValue(*treeState.getRawParameterValue("MIN_FREQ"));
-		maxFreqSmooth.setTargetValue(*treeState.getRawParameterValue("MAX_FREQ"));
+		centerFreqSmooth.setTargetValue(*treeState.getRawParameterValue("CENTER_FREQ"));
+		qFactorSmooth.setTargetValue(*treeState.getRawParameterValue("Q_FACTOR"));
 		updateCoefficients();
 	}
 
@@ -69,28 +69,20 @@ public:
 		}
 
 		// 1. Aggiorna coefficienti
-		minFreqSmooth.setTargetValue(*treeState.getRawParameterValue("MIN_FREQ"));
-		maxFreqSmooth.setTargetValue(*treeState.getRawParameterValue("MAX_FREQ"));
+		centerFreqSmooth.setTargetValue(*treeState.getRawParameterValue("CENTER_FREQ"));
+		qFactorSmooth.setTargetValue(*treeState.getRawParameterValue("Q_FACTOR"));
 
 		// Aggiorna coefficienti per ogni campione → smoothing reale a sample rate
 		for (int i = 0; i < numSamples; ++i)
 		{
 			updateCoefficients(); // avanza smoother di 1 campione
 
-			float monoSum = 0.0f;
 			for (int ch = 0; ch < numChannels; ++ch)
 			{
 				float* data = buffer.getWritePointer(ch);
 				// Processa un singolo campione per canale
 				data[i] = filters[ch].processSample(data[i]); // ← sample by sample
-				monoSum += data[i];
 			}
-
-			// Dissonance is measured on the band-pass filtered signal: with the
-			// chain ordered Distortion -> BandPass, this is the final processed
-			// signal, not the raw (unfiltered) distortion output.
-			if (dissonanceAnalyser != nullptr && numChannels > 0)
-				dissonanceAnalyser->pushSample(monoSum / (float)numChannels);
 		}
 
 		// 3. RMS sul mid channel per la misurazione
@@ -120,43 +112,32 @@ public:
 	// Leggi l'intensità della banda dal processore / editor
 	float getBandIntensityDb() const noexcept { return bandIntensityDb.load(); }
 
-	// Collega l'analizzatore di dissonanza: il bandpass (ultimo stadio della
-	// catena Distortion -> BandPass) alimenta il dissonance meter con il
-	// segnale finale filtrato.
-	void setDissonanceAnalyser(DissonanceAnalyser* analyser) noexcept { dissonanceAnalyser = analyser; }
-
 	juce::AudioProcessorValueTreeState treeState;
-	juce::LinearSmoothedValue<float> minFreqSmooth{ 0.0f };
-	juce::LinearSmoothedValue<float> maxFreqSmooth{ 0.0f };
+	juce::LinearSmoothedValue<float> centerFreqSmooth{ 30.0f };
+	juce::LinearSmoothedValue<float> qFactorSmooth{ 1.0f };
 
 private:
 	juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	{
 		std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-		// Frequenza minima della banda: 10..100 Hz, default 20 Hz
+		// Frequenza centrale del filtro band-pass: 10..20000 Hz, default 30 Hz
 		params.push_back(std::make_unique<juce::AudioParameterFloat>(
-			"MIN_FREQ", "Min Freq",
-			juce::NormalisableRange<float>(10.0f, 100.0f, 0.01f, 0.5f), 20.0f));
+			"CENTER_FREQ", "Center Freq",
+			juce::NormalisableRange<float>(10.0f, 20000.0f, 0.01f, 0.25f), 30.0f));
 
-		// Frequenza massima della banda: 30..20000 Hz, default 2000 Hz
+		// Fattore di qualità del filtro: 0.1..30, default 1.0
 		params.push_back(std::make_unique<juce::AudioParameterFloat>(
-			"MAX_FREQ", "Max Freq",
-			juce::NormalisableRange<float>(30.0f, 20000.0f, 0.01f, 0.25f), 2000.0f));
+			"Q_FACTOR", "Q Factor",
+			juce::NormalisableRange<float>(0.1f, 30.0f, 0.01f, 0.5f), 1.0f));
 
 		return { params.begin(), params.end() };
 	}
 
 	void updateCoefficients()
 	{
-		float minF = juce::jlimit(10.0f, 100.0f, minFreqSmooth.getNextValue());
-		float maxF = juce::jlimit(30.0f, 20000.0f, maxFreqSmooth.getNextValue());
-
-		// Center frequency is fixed at 30 Hz (not derived geometrically from the
-		// band edges); only the Q factor is derived from center + bandwidth.
-		const float center = 30.0f;
-		const float bw     = juce::jmax(1.0f, maxF - minF);
-		const float q      = juce::jlimit(0.1f, 30.0f, center / bw);
+		const float center = juce::jlimit(10.0f, 20000.0f, centerFreqSmooth.getNextValue());
+		const float q      = juce::jlimit(0.1f, 30.0f, qFactorSmooth.getNextValue());
 
 		for (auto& f : filters)
 			*f.coefficients = *juce::dsp::IIR::Coefficients<float>::makeBandPass(
@@ -165,8 +146,6 @@ private:
 
 	float currentSampleRate = 44100.0f;
 	std::atomic<float> bandIntensityDb{ -100.0f };
-
-	DissonanceAnalyser* dissonanceAnalyser = nullptr;
 
 	std::vector<juce::dsp::IIR::Filter<float>> filters;
 
@@ -188,9 +167,10 @@ private:
 //   x(t)     = x(t-1)  + x'(t-1)  · dt
 //
 // Physical model: resonant system with:
-//   - γ = ω = GAMMA_OMEGA parameter, expressed in Hz (1-200, default 30 Hz),
-//     converted to angular frequency ω₀ = 2π·f (rad/s) for the ODE terms;
-//     critically damped (ζ = 1) → damping = 2·ω₀, stiffness = ω₀²
+//   - γ = ω = GAMMA_OMEGA parameter, expressed directly in rad/s
+//     (default 188.4 rad/s = 2π·30 Hz, the correct angular-frequency form
+//     of a 30 Hz resonance target); critically damped (ζ = 1) →
+//     damping = 2·γ, stiffness = γ²
 //   - A·x² term generates intermodulation products and beating
 //
 // Processing: Parallel mix of clean signal + ODE output
@@ -236,12 +216,9 @@ public:
 			const float A = drive.getNextValue();
 			const float wet = juce::jlimit(0.0f, 1.0f, A / 5000.0f); // wet mix ratio [0,1]
 
-			// GAMMA_OMEGA is expressed in Hz (consistent with BandPassFilter and
-			// DissonanceAnalyser, which are also Hz-denominated); convert to the
-			// angular frequency ω₀ (rad/s) used by the ODE's natural-frequency terms.
+			// GAMMA_OMEGA is the angular frequency ω₀ (rad/s) directly.
 			// γ = ω (critically damped, ζ = 1): damping = 2·ω₀, stiffness = ω₀²
-			const float gammaOmegaHz = gammaOmega.getNextValue();
-			const float omega        = juce::MathConstants<float>::twoPi * gammaOmegaHz;
+			const float omega        = gammaOmega.getNextValue();
 			const float damping      = 2.0f * omega;
 			const float stiffness    = omega * omega;
 			const float gainComp     = stiffness; // compensate DC attenuation (1/stiffness)
@@ -294,8 +271,8 @@ public:
 	const juce::String getName() const override { return "Distortion"; }
 
 	juce::AudioProcessorValueTreeState treeState;
-	juce::LinearSmoothedValue<float> drive{ 0.0f };      // parametro A (nonlinearity)
-	juce::LinearSmoothedValue<float> gammaOmega{ 30.0f }; // parametro γ = ω
+	juce::LinearSmoothedValue<float> drive{ 0.0f };        // parametro A (nonlinearity)
+	juce::LinearSmoothedValue<float> gammaOmega{ 188.4f };  // parametro γ = ω (rad/s)
 
 private:
 	juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
@@ -304,9 +281,10 @@ private:
 		params.push_back(std::make_unique<juce::AudioParameterFloat>(
 			"A", "A (Non-linearity)",
 			juce::NormalisableRange<float>(0.0f, 5000.0f, 0.1f, 0.5f), 0.0f));
+		// γ = ω expressed directly in rad/s; default 188.4 rad/s = 2π·30 Hz
 		params.push_back(std::make_unique<juce::AudioParameterFloat>(
 			"GAMMA_OMEGA", "Gamma/Omega",
-			juce::NormalisableRange<float>(1.0f, 200.0f, 0.1f, 0.5f), 30.0f));
+			juce::NormalisableRange<float>(6.28f, 1256.6f, 0.1f, 0.5f), 188.4f));
 		return { params.begin(), params.end() };
 	}
 
@@ -381,10 +359,28 @@ public:
 	void  setOutputGain(float g) noexcept { outputGain.store(g); }
 	float getOutputGain() const noexcept { return outputGain.load(); }
 
-	void  updateOutputLevelRms(float dbfs) noexcept { outputLevelRms.store(dbfs); }
+	// Smooths the raw dBFS reading with the METER_SMOOTHING alpha before storing,
+	// so the OUT meter doesn't flicker rapidly on beating/close frequencies.
+	void updateOutputLevelRms(float dbfs) noexcept
+	{
+		const float alpha = meterSmoothingAlpha.load();
+		const float prev  = outputLevelRms.load();
+		outputLevelRms.store(alpha * dbfs + (1.0f - alpha) * prev);
+	}
 	float getOutputLevelRms() const noexcept { return outputLevelRms.load(); }
 
-	float getDissonance() const noexcept { return dissonanceAnalyser.getDissonance(); }
+	// Returns the EMA-smoothed dissonance value (see meterSmoothingAlpha).
+	float getDissonance() const noexcept { return smoothedDissonance.load(); }
+
+	// Returns the EMA-smoothed post-chain (Distortion -> BandPass) level, in dB.
+	float getBandLevelDb() const noexcept { return smoothedBandLevelDb.load(); }
+
+	// Returns the EMA-smoothed pre-distortion, pre-bandpass (clean input) level, in dB —
+	// the same signal that feeds the DissonanceAnalyser.
+	float getPreDistIntensityDb() const noexcept { return preDistIntensityDb.load(); }
+
+	void  setMeterSmoothing(float alpha) noexcept { meterSmoothingAlpha.store(juce::jlimit(0.01f, 1.0f, alpha)); }
+	float getMeterSmoothing() const noexcept { return meterSmoothingAlpha.load(); }
 
 	juce::AudioVisualiserComponent& getWaveForm() noexcept { return waveForm; }
 
@@ -393,6 +389,13 @@ public:
 
 private:
 	DissonanceAnalyser dissonanceAnalyser;
+
+	// EMA smoothing factor shared by the dissonance, OUT, POST CHAIN and PRE DIST
+	// meters. Applied on the audio thread each processBlock(); read by the UI for display.
+	std::atomic<float> meterSmoothingAlpha{ 0.05f };
+	std::atomic<float> smoothedDissonance{ 0.0f };
+	std::atomic<float> smoothedBandLevelDb{ -100.0f };
+	std::atomic<float> preDistIntensityDb{ -100.0f };
 	void initialiseGraph();
 	void connectAudioNodes();
 

@@ -407,10 +407,10 @@ public:
             BandPassFilter filter;
             filter.prepareToPlay (sr, blockSize);
 
-            auto* minP = filter.treeState.getParameter ("MIN_FREQ");
-            auto* maxP = filter.treeState.getParameter ("MAX_FREQ");
-            if (minP) minP->setValueNotifyingHost (minP->convertTo0to1 (20.0f));
-            if (maxP) maxP->setValueNotifyingHost (maxP->convertTo0to1 (2000.0f));
+            auto* centerP = filter.treeState.getParameter ("CENTER_FREQ");
+            auto* qP      = filter.treeState.getParameter ("Q_FACTOR");
+            if (centerP) centerP->setValueNotifyingHost (centerP->convertTo0to1 (30.0f));
+            if (qP)      qP->setValueNotifyingHost (qP->convertTo0to1 (0.1f));
 
             juce::AudioBuffer<float> buf (1, blockSize);
             juce::MidiBuffer         midi;
@@ -445,9 +445,9 @@ public:
             return (inRms > 1e-9f) ? (outRms / inRms) : 0.0f;
         };
 
-        // La frequenza centrale del bandpass e' fissa a 30 Hz: un tono a 30 Hz
+        // CENTER_FREQ = 30 Hz, Q_FACTOR = 0.1 (banda larga): un tono a 30 Hz
         // deve passare con perdita contenuta.
-        beginTest ("30 Hz (frequenza centrale fissa) deve passare con perdita < 6 dB (ratio > 0.5)");
+        beginTest ("30 Hz (frequenza centrale) deve passare con perdita < 6 dB (ratio > 0.5)");
         {
             float ratio = measureRatio (30.0f);
             expect (ratio > 0.5f, "30 Hz ratio = " + juce::String (ratio) + " (atteso > 0.5)");

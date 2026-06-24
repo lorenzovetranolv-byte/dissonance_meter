@@ -161,12 +161,12 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 	setLookAndFeel(customLookAndFeel);
 
 	// --- Slider BandPass con attachment ---
-	minFreqAttachment = std::make_unique<AudioProcessorValueTreeState::SliderAttachment>(
-		bandPassProcessor.treeState, "MIN_FREQ", minFreqSlider);
-	maxFreqAttachment = std::make_unique<AudioProcessorValueTreeState::SliderAttachment>(
-		bandPassProcessor.treeState, "MAX_FREQ", maxFreqSlider);
+	centerFreqAttachment = std::make_unique<AudioProcessorValueTreeState::SliderAttachment>(
+		bandPassProcessor.treeState, "CENTER_FREQ", centerFreqSlider);
+	qFactorAttachment = std::make_unique<AudioProcessorValueTreeState::SliderAttachment>(
+		bandPassProcessor.treeState, "Q_FACTOR", qFactorSlider);
 
-	for (auto* s : { &minFreqSlider, &maxFreqSlider })
+	for (auto* s : { &centerFreqSlider, &qFactorSlider })
 	{
 		s->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
 		s->setRotaryParameters(MathConstants<float>::pi * 1.2f,
@@ -235,7 +235,7 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 	// --- Master gain ---
 	masterGainSlider.setSliderStyle(Slider::LinearHorizontal);
 	masterGainSlider.setTextBoxStyle(Slider::TextBoxRight, false, 64, 18);
-	masterGainSlider.setRange(0.0, 4.0, 0.01);
+	masterGainSlider.setRange(0.0, 20.0, 0.01);
 	masterGainSlider.setValue(audioProcessor.getOutputGain(), dontSendNotification);
 	masterGainSlider.onValueChange = [this] {
 		audioProcessor.setOutputGain((float)masterGainSlider.getValue());
@@ -243,6 +243,18 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 	masterGainSlider.setColour(Slider::textBoxBackgroundColourId, UiTheme::panelAlt);
 	masterGainSlider.setColour(Slider::textBoxOutlineColourId, UiTheme::grid);
 	masterGainSlider.setColour(Slider::textBoxTextColourId, UiTheme::text);
+
+	// --- Meter smoothing (dissonance EMA alpha) ---
+	meterSmoothingSlider.setSliderStyle(Slider::LinearHorizontal);
+	meterSmoothingSlider.setTextBoxStyle(Slider::TextBoxRight, false, 64, 18);
+	meterSmoothingSlider.setRange(0.01, 1.0, 0.001);
+	meterSmoothingSlider.setValue(audioProcessor.getMeterSmoothing(), dontSendNotification);
+	meterSmoothingSlider.onValueChange = [this] {
+		audioProcessor.setMeterSmoothing((float)meterSmoothingSlider.getValue());
+		};
+	meterSmoothingSlider.setColour(Slider::textBoxBackgroundColourId, UiTheme::panelAlt);
+	meterSmoothingSlider.setColour(Slider::textBoxOutlineColourId, UiTheme::grid);
+	meterSmoothingSlider.setColour(Slider::textBoxTextColourId, UiTheme::text);
 
 	// --- Mode selector ---
 	modeSelector.addItem("External Input", 1);
@@ -262,21 +274,22 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 		l.setJustificationType(just);
 		l.setInterceptsMouseClicks(false, false);
 		};
-	setupLabel(minFreqLabel, "FREQ MIN", Justification::centred);
-	setupLabel(maxFreqLabel, "FREQ MAX", Justification::centred);
+	setupLabel(centerFreqLabel, "CENTER FREQ", Justification::centred);
+	setupLabel(qFactorLabel, "Q FACTOR", Justification::centred);
 	setupLabel(aLabel, "NONLINEARITY", Justification::centred);
 	setupLabel(gammaOmegaLabel, "GAMMA / OMEGA", Justification::centred);
 	setupLabel(osc1Label, "OSC 1 (Hz)", Justification::centredLeft);
 	setupLabel(osc2Label, "OSC 2 (Hz)", Justification::centredLeft);
 	setupLabel(masterGainLabel, "MASTER GAIN", Justification::centredLeft);
+	setupLabel(meterSmoothingLabel, "METER SPEED", Justification::centredLeft);
 
 	// --- Waveform ---
 	audioProcessor.getWaveForm().setColours(UiTheme::panel, UiTheme::accent);
 
 	// --- AddAndMakeVisible ---
 	addAndMakeVisible(modeSelector);
-	addAndMakeVisible(minFreqSlider);  addAndMakeVisible(minFreqLabel);
-	addAndMakeVisible(maxFreqSlider);  addAndMakeVisible(maxFreqLabel);
+	addAndMakeVisible(centerFreqSlider); addAndMakeVisible(centerFreqLabel);
+	addAndMakeVisible(qFactorSlider);    addAndMakeVisible(qFactorLabel);
 	addAndMakeVisible(aSlider);        addAndMakeVisible(aLabel);
 	addAndMakeVisible(gammaOmegaSlider); addAndMakeVisible(gammaOmegaLabel);
 	addAndMakeVisible(oscFreq1Slider); addAndMakeVisible(osc1Label);
@@ -285,6 +298,8 @@ DissonanceMeeterAudioProcessorEditor::DissonanceMeeterAudioProcessorEditor(
 	addAndMakeVisible(oscFreq2Minus);  addAndMakeVisible(oscFreq2Plus);
 	addAndMakeVisible(masterGainSlider);
 	addAndMakeVisible(masterGainLabel);
+	addAndMakeVisible(meterSmoothingSlider);
+	addAndMakeVisible(meterSmoothingLabel);
 	addAndMakeVisible(audioProcessor.getWaveForm());
 
 	setSize(900, 580);
@@ -298,6 +313,17 @@ DissonanceMeeterAudioProcessorEditor::~DissonanceMeeterAudioProcessorEditor()
 {
 	setLookAndFeel(nullptr);
 	delete customLookAndFeel;
+}
+
+//==============================================================================
+void DissonanceMeeterAudioProcessorEditor::drawMeterLabel(juce::Graphics& g, const juce::String& text, int meterCentreX, int labelW) const
+{
+	int labelX = meterCentreX - labelW / 2;
+	labelX = juce::jmax(sectionMaster.getX() + UiTheme::pad, labelX);
+	labelX = juce::jmin(sectionMaster.getRight() - UiTheme::pad - labelW, labelX);
+	g.setColour(UiTheme::textDim);
+	g.setFont(9.0f);
+	g.drawText(text, labelX, meterY + meterH + 2, labelW, 12, juce::Justification::centred);
 }
 
 //==============================================================================
@@ -402,14 +428,12 @@ void DissonanceMeeterAudioProcessorEditor::paint(juce::Graphics& g)
 			g.fillRoundedRectangle(fill.toFloat(), 3.0f);
 		}
 
-		g.setColour(UiTheme::textDim);
-		g.setFont(10.0f);
-		g.drawText("OUT", meterX - 2, meterY + meterH + 2, meterW + 4, 12, juce::Justification::centred);
+		drawMeterLabel(g, "OUT", meterX + meterW / 2, 36);
 	}
 
 	// BAND meter
 	{
-		const float db = jlimit(meterMinDb, meterMaxDb, bandPassProcessor.getBandIntensityDb());
+		const float db = jlimit(meterMinDb, meterMaxDb, audioProcessor.getBandLevelDb());
 		const float norm = (db - meterMinDb) / (meterMaxDb - meterMinDb);
 		const int fillH = (int)std::round(norm * (float)meterH);
 		juce::Rectangle<int> bg{ bandMeterX, meterY, meterW, meterH };
@@ -425,9 +449,29 @@ void DissonanceMeeterAudioProcessorEditor::paint(juce::Graphics& g)
 			g.fillRoundedRectangle(fill.toFloat(), 3.0f);
 		}
 
-		g.setColour(UiTheme::textDim);
-		g.setFont(10.0f);
-		g.drawText("BAND", bandMeterX - 6, meterY + meterH + 2, meterW + 12, 12, juce::Justification::centred);
+		drawMeterLabel(g, "POST CHAIN", bandMeterX + meterW / 2, 70);
+	}
+
+	// PRE DIST meter — clean input level (pre-distortion, pre-bandpass),
+	// the same signal that feeds the DissonanceAnalyser.
+	{
+		const float db = jlimit(meterMinDb, meterMaxDb, audioProcessor.getPreDistIntensityDb());
+		const float norm = (db - meterMinDb) / (meterMaxDb - meterMinDb);
+		const int fillH = (int)std::round(norm * (float)meterH);
+		juce::Rectangle<int> bg{ preDistMeterX, meterY, meterW, meterH };
+		g.setColour(UiTheme::panelAlt);
+		g.fillRoundedRectangle(bg.toFloat(), 4.0f);
+
+		if (fillH > 2)
+		{
+			juce::Rectangle<int> fill{ preDistMeterX + 1, meterY + meterH - fillH + 1, meterW - 2, fillH - 2 };
+			juce::ColourGradient grad(UiTheme::accentBlue, fill.getBottomLeft().toFloat(),
+				UiTheme::warning, fill.getTopLeft().toFloat(), false);
+			g.setGradientFill(grad);
+			g.fillRoundedRectangle(fill.toFloat(), 3.0f);
+		}
+
+		drawMeterLabel(g, "PRE DIST", preDistMeterX + meterW / 2, 60);
 	}
 
 	// dB tick marks
@@ -437,8 +481,8 @@ void DissonanceMeeterAudioProcessorEditor::paint(juce::Graphics& g)
 	{
 		const float norm = (db - meterMinDb) / (meterMaxDb - meterMinDb);
 		const int y = meterY + meterH - (int)std::round(norm * (float)meterH);
-		g.drawHorizontalLine(y, (float)meterX, (float)(bandMeterX + meterW));
-		g.drawText(String((int)db), bandMeterX + meterW + 4, y - 6, UiTheme::meterLabelW, 12,
+		g.drawHorizontalLine(y, (float)meterX, (float)(preDistMeterX + meterW));
+		g.drawText(String((int)db), preDistMeterX + meterW + 4, y - 6, UiTheme::meterLabelW, 12,
 			juce::Justification::centredLeft);
 	}
 }
@@ -449,15 +493,15 @@ void DissonanceMeeterAudioProcessorEditor::resized()
 	const int titleH = UiTheme::titleH;
 	const int labelH = UiTheme::labelH;
 	const int knobSize = UiTheme::knobSize;
-	const int btnW = UiTheme::smallBtn;
 
 	auto bounds = getLocalBounds();
 	bounds.removeFromTop(UiTheme::headerH);
 	auto contentArea = bounds.reduced(pad);
 
-	// Left column wide enough for: pad+meterW+pad+meterW+4+meterLabelW+pad
-	// and comfortable controls (gain slider, mode selector).
-	const int leftColW = 200;
+	// Left column wide enough for three vertical meters (OUT, POST CHAIN,
+	// PRE DIST) with labels and dB tick text, plus comfortable controls
+	// (gain slider, mode selector).
+	const int leftColW = 260;
 	const int rightW = contentArea.getWidth() - leftColW - pad;
 	const int rightX = contentArea.getX() + leftColW + pad;
 
@@ -476,9 +520,8 @@ void DissonanceMeeterAudioProcessorEditor::resized()
 	sectionMaster = juce::Rectangle<int>(contentArea.getX(), contentArea.getY(),
 		leftColW, contentArea.getHeight());
 
-	// sectionFreq is now the merged PARAMETERS card (freq min/max + nonlinearity A)
+	// sectionFreq is the merged PARAMETERS card (center freq, Q, nonlinearity A, gamma/omega)
 	sectionFreq = juce::Rectangle<int>(rightX, contentArea.getY(), rightW, paramsH);
-	sectionNonlin = {};   // no longer a separate card
 
 	sectionOsc = juce::Rectangle<int>(rightX, sectionFreq.getBottom() + pad, rightW, oscH);
 
@@ -499,6 +542,12 @@ void DissonanceMeeterAudioProcessorEditor::resized()
 		masterGainSlider.setBounds(inner.getX(), y, inner.getWidth(), 30);
 		y += 36;
 
+		// Meter smoothing (EMA alpha shared by dissonance, OUT and POST CHAIN meters)
+		meterSmoothingLabel.setBounds(inner.getX(), y, inner.getWidth(), labelH);
+		y += labelH + 2;
+		meterSmoothingSlider.setBounds(inner.getX(), y, inner.getWidth(), 30);
+		y += 36;
+
 		// Dissonance bar — label drawn 14 px above it inside paint()
 		dissBarBounds = juce::Rectangle<int>(inner.getX(), y + 14, inner.getWidth(), 20);
 		y += 14 + 20 + pad;
@@ -507,8 +556,12 @@ void DissonanceMeeterAudioProcessorEditor::resized()
 		meterX = inner.getX();
 		meterY = y;
 		meterW = UiTheme::meterW;
-		bandMeterX = meterX + meterW + pad;
-		// Reserve 14 px below meters for the "OUT" / "BAND" labels
+		// Wider gap than a generic "pad": the labels below ("OUT", "POST CHAIN",
+		// "PRE DIST") need more horizontal room than the bars themselves to
+		// avoid overlapping.
+		bandMeterX = meterX + meterW + 56;
+		preDistMeterX = bandMeterX + meterW + 56;
+		// Reserve 14 px below meters for the "OUT" / "POST CHAIN" / "PRE DIST" labels
 		meterH = juce::jmax(20, sectionMaster.getBottom() - pad - 14 - meterY);
 	}
 
@@ -518,13 +571,13 @@ void DissonanceMeeterAudioProcessorEditor::resized()
 		const int labelY = inner.getY() + titleClear;
 		const int sliderY = labelY + labelH + 4;
 
-		minFreqLabel.setBounds(inner.getX(), labelY, knobSize, labelH);
-		maxFreqLabel.setBounds(inner.getX() + (knobSize + pad), labelY, knobSize, labelH);
+		centerFreqLabel.setBounds(inner.getX(), labelY, knobSize, labelH);
+		qFactorLabel.setBounds(inner.getX() + (knobSize + pad), labelY, knobSize, labelH);
 		aLabel.setBounds(inner.getX() + (knobSize + pad) * 2, labelY, knobSize, labelH);
 		gammaOmegaLabel.setBounds(inner.getX() + (knobSize + pad) * 3, labelY, knobSize, labelH);
 
-		minFreqSlider.setBounds(inner.getX(), sliderY, knobSize, knobSize);
-		maxFreqSlider.setBounds(inner.getX() + (knobSize + pad), sliderY, knobSize, knobSize);
+		centerFreqSlider.setBounds(inner.getX(), sliderY, knobSize, knobSize);
+		qFactorSlider.setBounds(inner.getX() + (knobSize + pad), sliderY, knobSize, knobSize);
 		aSlider.setBounds(inner.getX() + (knobSize + pad) * 2, sliderY, knobSize, knobSize);
 		gammaOmegaSlider.setBounds(inner.getX() + (knobSize + pad) * 3, sliderY, knobSize, knobSize);
 	}

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="MSo5Wm" name="dissonanceMeeter" projectType="araaudioplug"
-              jucerFormatVersion="1" useAppConfig="0" version="1.0.2">
+              jucerFormatVersion="1" useAppConfig="0" version="1.1.0">
   <MAINGROUP id="DZ4fo3" name="dissonanceMeeter">
     <GROUP id="{4C8502C0-96CC-A6AD-9BC3-0E135D05EE8E}" name="Source">
       <FILE id="OaOipB" name="PluginProcessor.cpp" compile="1" resource="0"

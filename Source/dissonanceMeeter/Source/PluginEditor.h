@@ -33,6 +33,10 @@ public:
 private:
 	class DissonanceLookAndFeel;
 
+	// Draws a meter caption ("OUT", "POST CHAIN", ...) in a labelW-wide box,
+	// centred on meterCentreX and clamped within sectionMaster.
+	void drawMeterLabel(juce::Graphics& g, const juce::String& text, int meterCentreX, int labelW) const;
+
 	// This reference is provided as a quick way for your editor to
 	// access the processor object that created it.
 	DissonanceMeeterAudioProcessor& audioProcessor;
@@ -41,13 +45,13 @@ private:
 	DissonanceLookAndFeel* customLookAndFeel = nullptr;
 
 	// --- Parametri BandPass ---
-	juce::Slider minFreqSlider;   // MIN_FREQ
-	juce::Slider maxFreqSlider;   // MAX_FREQ
-	juce::Label  minFreqLabel;
-	juce::Label  maxFreqLabel;
+	juce::Slider centerFreqSlider; // CENTER_FREQ
+	juce::Slider qFactorSlider;    // Q_FACTOR
+	juce::Label  centerFreqLabel;
+	juce::Label  qFactorLabel;
 
-	std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> minFreqAttachment;
-	std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> maxFreqAttachment;
+	std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> centerFreqAttachment;
+	std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> qFactorAttachment;
 
 	// --- Parametro Distortion ---
 	juce::Slider aSlider;         // A (non-linearità)
@@ -71,13 +75,17 @@ private:
 	juce::Slider   masterGainSlider;
 	juce::Label    masterGainLabel;
 
+	// --- Meter smoothing (EMA alpha shared by dissonance, OUT and POST CHAIN meters) ---
+	juce::Slider meterSmoothingSlider; // METER_SMOOTHING (alpha)
+	juce::Label  meterSmoothingLabel;
+
 	// --- Meter banda (BandPass intensity) ---
 	// Il meter principale (output RMS) è disegnato in paint()
-	// Il meter della banda è disegnato separatamente a destra
+	// I meter POST CHAIN e PRE DIST sono disegnati separatamente a destra
 	int meterX = 0, meterY = 0, meterW = 18, meterH = 200;
 	int bandMeterX = 0;
+	int preDistMeterX = 0;
 	juce::Rectangle<int> sectionFreq;
-	juce::Rectangle<int> sectionNonlin;
 	juce::Rectangle<int> sectionOsc;
 	juce::Rectangle<int> sectionMaster;
 	juce::Rectangle<int> sectionViz;
