@@ -460,6 +460,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 143F581C9CB1973A1CD5FB86;
 			buildPhases = (
+				DEC0DE0123456789ABCDEF01,
 				FE5BBB5F5976E1EDA0E96628,
 			);
 			buildRules = (
@@ -664,6 +665,17 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		DEC0DE0123456789ABCDEF01 /* Pre-build script */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			name = "Pre-build script";
+			alwaysOutOfDate = 1;
+			shellPath = /bin/sh;
+			shellScript = "set -euo pipefail\nsh \"${SRCROOT}/update_build_number.sh\"\n";
+		};
 		042B92F918C4C9975C12D714 /* Update manifest */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
