@@ -158,16 +158,10 @@ void DissonanceMeeterAudioProcessor::initialiseGraph()
 
 	if (audioInputNode == nullptr)
 		audioInputNode = mainProcessor->addNode(std::make_unique<AudioGraphIOProcessor>(AudioGraphIOProcessor::audioInputNode));
-	if (bandPassNode == nullptr)
-	{
-		bandPassNode = mainProcessor->addNode(std::make_unique<BandPassFilter>());
-		// Dissonance is measured on the band-pass filtered signal — the last
-		// stage of the chain (Distortion -> BandPass) — not on the raw,
-		// unfiltered distortion output.
-		static_cast<BandPassFilter*>(bandPassNode->getProcessor())->setDissonanceAnalyser(&dissonanceAnalyser);
-	}
 	if (distortionNode == nullptr)
 		distortionNode = mainProcessor->addNode(std::make_unique<Distortion>());
+	if (bandPassNode == nullptr)
+		bandPassNode = mainProcessor->addNode(std::make_unique<BandPassFilter>());
 	if (audioOutputNode == nullptr)
 		audioOutputNode = mainProcessor->addNode(std::make_unique<AudioGraphIOProcessor>(AudioGraphIOProcessor::audioOutputNode));
 }
@@ -221,12 +215,7 @@ void DissonanceMeeterAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
 	for (int ch = getTotalNumInputChannels(); ch < getTotalNumOutputChannels(); ++ch)
 		buffer.clear(ch, 0, buffer.getNumSamples());
 
-	if (getInputMode() == InputMode::ExternalInput)
-	{
-		if (mainProcessor != nullptr)
-			mainProcessor->processBlock(buffer, midiMessages);
-	}
-	else
+	if (getInputMode() != InputMode::ExternalInput)
 	{
 		// Modalità oscillatore: genera due sinusoidi miscelate
 		const int    numSamples = buffer.getNumSamples();
@@ -258,28 +247,67 @@ void DissonanceMeeterAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
 			peak = juce::jmax(peak, buffer.getMagnitude(ch, 0, numSamples));
 		if (peak > 1e-6f)
 			buffer.applyGain(1.0f / peak);
+	}
 
-		// Applica la catena Distortion → BandPass anche all'oscillatore
-		if (mainProcessor != nullptr)
-			mainProcessor->processBlock(buffer, midiMessages);
+	// DissonanceAnalyser receives the clean input signal (pre-distortion,
+	// pre-bandpass) — raw external input, or the generated/normalised
+	// oscillator signal — not anything that has passed through Distortion or
+	// BandPass. The same clean signal also feeds the PRE DIST level meter.
+	{
+		const int numSamples = buffer.getNumSamples();
+		const int numCh = buffer.getNumChannels();
+		double sumSq = 0.0;
+		for (int i = 0; i < numSamples; ++i)
+		{
+			float monoSum = 0.0f;
+			for (int ch = 0; ch < numCh; ++ch)
+				monoSum += buffer.getSample(ch, i);
+			const float cleanInputSample = numCh > 0 ? monoSum / (float)numCh : 0.0f;
+
+			dissonanceAnalyser.pushSample(cleanInputSample);
+			sumSq += (double)cleanInputSample * (double)cleanInputSample;
+		}
+
+		const float rms  = numSamples > 0 ? (float)std::sqrt(sumSq / numSamples) : 0.0f;
+		const float dbfs = rms > 1e-9f ? 20.0f * std::log10(rms) : -100.0f;
+		const float alpha = meterSmoothingAlpha.load();
+		const float prev   = preDistIntensityDb.load();
+		preDistIntensityDb.store(alpha * dbfs + (1.0f - alpha) * prev);
+	}
+
+	if (mainProcessor != nullptr)
+		mainProcessor->processBlock(buffer, midiMessages);
+
+	// Smooth the post-chain (Distortion -> BandPass) level with the same
+	// METER_SMOOTHING alpha as the dissonance/OUT meters, so the POST CHAIN
+	// meter doesn't flicker rapidly on beating/close frequencies.
+	if (bandPassNode != nullptr)
+	{
+		const float rawBandDb = static_cast<BandPassFilter*>(bandPassNode->getProcessor())->getBandIntensityDb();
+		const float alpha     = meterSmoothingAlpha.load();
+		const float prev      = smoothedBandLevelDb.load();
+		smoothedBandLevelDb.store(alpha * rawBandDb + (1.0f - alpha) * prev);
 	}
 
 	// Guadagno master
-	const float gain = juce::jlimit(0.0f, 4.0f, getOutputGain());
+	const float gain = juce::jlimit(0.0f, 20.0f, getOutputGain());
 	if (gain != 1.0f)
 		for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
 			buffer.applyGain(ch, 0, buffer.getNumSamples(), gain);
 
-	// Post-chain peak normalisation: prevents hard clipping so metering stays stable.
-	// Only scales down when the chain produces a peak above 0 dBFS.
+	// Soft clip (tanh): keeps the chain from hard-clipping when the master gain
+	// (up to 20x) pushes the signal past 0 dBFS, without cancelling out the
+	// gain the way a peak-renormalisation step would (that previously made the
+	// master gain knob appear to do nothing above unity).
 	{
 		const int numCh = buffer.getNumChannels();
 		const int numS  = buffer.getNumSamples();
-		float peak = 0.0f;
 		for (int ch = 0; ch < numCh; ++ch)
-			peak = juce::jmax(peak, buffer.getMagnitude(ch, 0, numS));
-		if (peak > 1.0f)
-			buffer.applyGain(1.0f / peak);
+		{
+			float* d = buffer.getWritePointer(ch);
+			for (int i = 0; i < numS; ++i)
+				d[i] = std::tanh(d[i]);
+		}
 	}
 
 	// Calcolo RMS → dBFS per il meter principale
@@ -294,6 +322,16 @@ void DissonanceMeeterAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
 	float rms = totalSamples > 0 ? (float)std::sqrt(sumSq / totalSamples) : 0.0f;
 	float dbfs = rms > 1e-9f ? 20.0f * std::log10(rms) : -100.0f;
 	updateOutputLevelRms(dbfs);
+
+	// Exponential moving average smoothing of the dissonance value, so the UI
+	// meter doesn't oscillate erratically on closely-spaced frequencies.
+	// smoothedDissonance is read by the UI timer callback (see getDissonance()).
+	{
+		const float alpha = meterSmoothingAlpha.load();
+		const float raw   = dissonanceAnalyser.getDissonance();
+		const float prev  = smoothedDissonance.load();
+		smoothedDissonance.store(alpha * raw + (1.0f - alpha) * prev);
+	}
 
 	waveForm.pushBuffer(buffer);
 }
