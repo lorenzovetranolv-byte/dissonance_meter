@@ -11,6 +11,7 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = F98FF9F7CAA634C898F67C4B;
 			buildPhases = (
+				4997C874A257A2FB331E87CD,
 			);
 			dependencies = (
 				474D746E965F654F047299A0,
@@ -386,6 +387,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = B50DDAE4E12198DAC31CA7F3;
 			buildPhases = (
+				4C4372C2B48C9CA594562CF4,
 				43CD96942377C822D93BF2E2,
 				DAF824BD0E3C8E99F0325311,
 			);
@@ -402,11 +404,12 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 6E4BFB2448A586D336F14CB4;
 			buildPhases = (
+				042B92F918C4C9975C12D714,
 				882C7C0EE9B436D0030307F3,
 				1221E103BDBD2A11CEF1FCD2,
 				6BFDA85E67CD99E035991741,
-				042B92F918C4C9975C12D714,
 				8DE0E4CE0351D58C7A3ADA5B,
+				3FAD906D5D34B771EB5110BD,
 			);
 			buildRules = (
 			);
@@ -423,10 +426,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = BEF3125914F661D9E63EBA00;
 			buildPhases = (
+				A22C91A9BE0C0A3B024E4AB6,
 				60E2C566E60966F1E8E86FC4,
 				2E8F9C46AD184803CA5B26EA,
 				B8E186FDB5E8A6C0E285B9D9,
-				A22C91A9BE0C0A3B024E4AB6,
+				3DBC9F7CC20F06B9034911CC,
 			);
 			buildRules = (
 			);
@@ -442,6 +446,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 25DBDCF1D8A318ABE802405E;
 			buildPhases = (
+				E63232E0FD797C2D9ECB5683,
 				52AA1C67D2A3D1EC8533668F,
 				745DF867C6C72B7A66172BFF,
 				BBFE59397C19D42ED758BC82,
@@ -460,7 +465,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 143F581C9CB1973A1CD5FB86;
 			buildPhases = (
-				DEC0DE0123456789ABCDEF01,
+				50461F107B193BD8C9026CEF,
 				FE5BBB5F5976E1EDA0E96628,
 			);
 			buildRules = (
@@ -665,7 +670,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		DEC0DE0123456789ABCDEF01 /* Pre-build script */ = {
+		042B92F918C4C9975C12D714 /* Pre-build script */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -674,20 +679,20 @@
 			name = "Pre-build script";
 			alwaysOutOfDate = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -euo pipefail\nsh \"${SRCROOT}/update_build_number.sh\"\n";
+			shellScript = "sh \"${SRCROOT}/update_build_number.sh\"";
 		};
-		042B92F918C4C9975C12D714 /* Update manifest */ = {
+		3DBC9F7CC20F06B9034911CC /* Plugin Copy Step */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
-			name = "Update manifest";
+			name = "Plugin Copy Step";
 			alwaysOutOfDate = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -euo pipefail\n\necho Running \\\"${CONFIGURATION_BUILD_DIR}/juce_vst3_helper\\\" \\> \\\"${CONFIGURATION_BUILD_DIR}/${WRAPPER_NAME}/Contents/Resources/moduleinfo.json\\\"\n\"${CONFIGURATION_BUILD_DIR}/juce_vst3_helper\" > \"${CONFIGURATION_BUILD_DIR}/${WRAPPER_NAME}/Contents/Resources/moduleinfo.json\"\n";
+			shellScript = "set -euo pipefail\n\nif [[ \"${CONFIGURATION}\" == \"Debug\" ]]; then\n  destinationPlugin=\"${HOME}/Library/Audio/Plug-Ins/Components//$(basename \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\")\"\n  echo Running rm -rf \\\"${destinationPlugin}\\\"\n  rm -rf \"${destinationPlugin}\"\n  echo Running ditto \\\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\\\" \\\"${destinationPlugin}\\\"\n  ditto \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\" \"${destinationPlugin}\"\n\n  if [[ -n \"${EXPANDED_CODE_SIGN_IDENTITY-}\" ]]; then\n    if [[ -n \"${CODE_SIGN_ENTITLEMENTS-}\" ]]; then\n      entitlementsArg=(--entitlements \"${CODE_SIGN_ENTITLEMENTS}\")\n    fi\n\n    echo Signing Identity: \\\"${EXPANDED_CODE_SIGN_IDENTITY_NAME}\\\"\n    echo Running codesign --verbose=4 --force --sign \\\"${EXPANDED_CODE_SIGN_IDENTITY}\\\" ${entitlementsArg[*]-} ${OTHER_CODE_SIGN_FLAGS-} \\\"${HOME}/Library/Audio/Plug-Ins/Components//${WRAPPER_NAME}\\\"\n    codesign --verbose=4 --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" ${entitlementsArg[*]-} ${OTHER_CODE_SIGN_FLAGS-} \"${HOME}/Library/Audio/Plug-Ins/Components//${WRAPPER_NAME}\"\n  fi\nfi\n\nif [[ \"${CONFIGURATION}\" == \"Release\" ]]; then\n  destinationPlugin=\"${HOME}/Library/Audio/Plug-Ins/Components//$(basename \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\")\"\n  echo Running rm -rf \\\"${destinationPlugin}\\\"\n  rm -rf \"${destinationPlugin}\"\n  echo Running ditto \\\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\\\" \\\"${destinationPlugin}\\\"\n  ditto \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\" \"${destinationPlugin}\"\n\n  if [[ -n \"${EXPANDED_CODE_SIGN_IDENTITY-}\" ]]; then\n    if [[ -n \"${CODE_SIGN_ENTITLEMENTS-}\" ]]; then\n      entitlementsArg=(--entitlements \"${CODE_SIGN_ENTITLEMENTS}\")\n    fi\n\n    echo Signing Identity: \\\"${EXPANDED_CODE_SIGN_IDENTITY_NAME}\\\"\n    echo Running codesign --verbose=4 --force --sign \\\"${EXPANDED_CODE_SIGN_IDENTITY}\\\" ${entitlementsArg[*]-} ${OTHER_CODE_SIGN_FLAGS-} \\\"${HOME}/Library/Audio/Plug-Ins/Components//${WRAPPER_NAME}\\\"\n    codesign --verbose=4 --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" ${entitlementsArg[*]-} ${OTHER_CODE_SIGN_FLAGS-} \"${HOME}/Library/Audio/Plug-Ins/Components//${WRAPPER_NAME}\"\n  fi\nfi\n";
 		};
-		8DE0E4CE0351D58C7A3ADA5B /* Plugin Copy Step */ = {
+		3FAD906D5D34B771EB5110BD /* Plugin Copy Step */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -698,16 +703,71 @@
 			shellPath = /bin/sh;
 			shellScript = "set -euo pipefail\n\nif [[ \"${CONFIGURATION}\" == \"Debug\" ]]; then\n  destinationPlugin=\"${HOME}/Library/Audio/Plug-Ins/VST3//$(basename \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\")\"\n  echo Running rm -rf \\\"${destinationPlugin}\\\"\n  rm -rf \"${destinationPlugin}\"\n  echo Running ditto \\\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\\\" \\\"${destinationPlugin}\\\"\n  ditto \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\" \"${destinationPlugin}\"\n\n  if [[ -n \"${EXPANDED_CODE_SIGN_IDENTITY-}\" ]]; then\n    if [[ -n \"${CODE_SIGN_ENTITLEMENTS-}\" ]]; then\n      entitlementsArg=(--entitlements \"${CODE_SIGN_ENTITLEMENTS}\")\n    fi\n\n    echo Signing Identity: \\\"${EXPANDED_CODE_SIGN_IDENTITY_NAME}\\\"\n    echo Running codesign --verbose=4 --force --sign \\\"${EXPANDED_CODE_SIGN_IDENTITY}\\\" ${entitlementsArg[*]-} ${OTHER_CODE_SIGN_FLAGS-} \\\"${HOME}/Library/Audio/Plug-Ins/VST3//${WRAPPER_NAME}\\\"\n    codesign --verbose=4 --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" ${entitlementsArg[*]-} ${OTHER_CODE_SIGN_FLAGS-} \"${HOME}/Library/Audio/Plug-Ins/VST3//${WRAPPER_NAME}\"\n  fi\nfi\n\nif [[ \"${CONFIGURATION}\" == \"Release\" ]]; then\n  destinationPlugin=\"${HOME}/Library/Audio/Plug-Ins/VST3//$(basename \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\")\"\n  echo Running rm -rf \\\"${destinationPlugin}\\\"\n  rm -rf \"${destinationPlugin}\"\n  echo Running ditto \\\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\\\" \\\"${destinationPlugin}\\\"\n  ditto \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\" \"${destinationPlugin}\"\n\n  if [[ -n \"${EXPANDED_CODE_SIGN_IDENTITY-}\" ]]; then\n    if [[ -n \"${CODE_SIGN_ENTITLEMENTS-}\" ]]; then\n      entitlementsArg=(--entitlements \"${CODE_SIGN_ENTITLEMENTS}\")\n    fi\n\n    echo Signing Identity: \\\"${EXPANDED_CODE_SIGN_IDENTITY_NAME}\\\"\n    echo Running codesign --verbose=4 --force --sign \\\"${EXPANDED_CODE_SIGN_IDENTITY}\\\" ${entitlementsArg[*]-} ${OTHER_CODE_SIGN_FLAGS-} \\\"${HOME}/Library/Audio/Plug-Ins/VST3//${WRAPPER_NAME}\\\"\n    codesign --verbose=4 --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" ${entitlementsArg[*]-} ${OTHER_CODE_SIGN_FLAGS-} \"${HOME}/Library/Audio/Plug-Ins/VST3//${WRAPPER_NAME}\"\n  fi\nfi\n";
 		};
-		A22C91A9BE0C0A3B024E4AB6 /* Plugin Copy Step */ = {
+		4997C874A257A2FB331E87CD /* Pre-build script */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
-			name = "Plugin Copy Step";
+			name = "Pre-build script";
 			alwaysOutOfDate = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -euo pipefail\n\nif [[ \"${CONFIGURATION}\" == \"Debug\" ]]; then\n  destinationPlugin=\"${HOME}/Library/Audio/Plug-Ins/Components//$(basename \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\")\"\n  echo Running rm -rf \\\"${destinationPlugin}\\\"\n  rm -rf \"${destinationPlugin}\"\n  echo Running ditto \\\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\\\" \\\"${destinationPlugin}\\\"\n  ditto \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\" \"${destinationPlugin}\"\n\n  if [[ -n \"${EXPANDED_CODE_SIGN_IDENTITY-}\" ]]; then\n    if [[ -n \"${CODE_SIGN_ENTITLEMENTS-}\" ]]; then\n      entitlementsArg=(--entitlements \"${CODE_SIGN_ENTITLEMENTS}\")\n    fi\n\n    echo Signing Identity: \\\"${EXPANDED_CODE_SIGN_IDENTITY_NAME}\\\"\n    echo Running codesign --verbose=4 --force --sign \\\"${EXPANDED_CODE_SIGN_IDENTITY}\\\" ${entitlementsArg[*]-} ${OTHER_CODE_SIGN_FLAGS-} \\\"${HOME}/Library/Audio/Plug-Ins/Components//${WRAPPER_NAME}\\\"\n    codesign --verbose=4 --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" ${entitlementsArg[*]-} ${OTHER_CODE_SIGN_FLAGS-} \"${HOME}/Library/Audio/Plug-Ins/Components//${WRAPPER_NAME}\"\n  fi\nfi\n\nif [[ \"${CONFIGURATION}\" == \"Release\" ]]; then\n  destinationPlugin=\"${HOME}/Library/Audio/Plug-Ins/Components//$(basename \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\")\"\n  echo Running rm -rf \\\"${destinationPlugin}\\\"\n  rm -rf \"${destinationPlugin}\"\n  echo Running ditto \\\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\\\" \\\"${destinationPlugin}\\\"\n  ditto \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\" \"${destinationPlugin}\"\n\n  if [[ -n \"${EXPANDED_CODE_SIGN_IDENTITY-}\" ]]; then\n    if [[ -n \"${CODE_SIGN_ENTITLEMENTS-}\" ]]; then\n      entitlementsArg=(--entitlements \"${CODE_SIGN_ENTITLEMENTS}\")\n    fi\n\n    echo Signing Identity: \\\"${EXPANDED_CODE_SIGN_IDENTITY_NAME}\\\"\n    echo Running codesign --verbose=4 --force --sign \\\"${EXPANDED_CODE_SIGN_IDENTITY}\\\" ${entitlementsArg[*]-} ${OTHER_CODE_SIGN_FLAGS-} \\\"${HOME}/Library/Audio/Plug-Ins/Components//${WRAPPER_NAME}\\\"\n    codesign --verbose=4 --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" ${entitlementsArg[*]-} ${OTHER_CODE_SIGN_FLAGS-} \"${HOME}/Library/Audio/Plug-Ins/Components//${WRAPPER_NAME}\"\n  fi\nfi\n";
+			shellScript = "sh \"${SRCROOT}/update_build_number.sh\"";
+		};
+		4C4372C2B48C9CA594562CF4 /* Pre-build script */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			name = "Pre-build script";
+			alwaysOutOfDate = 1;
+			shellPath = /bin/sh;
+			shellScript = "sh \"${SRCROOT}/update_build_number.sh\"";
+		};
+		50461F107B193BD8C9026CEF /* Pre-build script */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			name = "Pre-build script";
+			alwaysOutOfDate = 1;
+			shellPath = /bin/sh;
+			shellScript = "sh \"${SRCROOT}/update_build_number.sh\"";
+		};
+		8DE0E4CE0351D58C7A3ADA5B /* Update manifest */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			name = "Update manifest";
+			alwaysOutOfDate = 1;
+			shellPath = /bin/sh;
+			shellScript = "set -euo pipefail\n\necho Running \\\"${CONFIGURATION_BUILD_DIR}/juce_vst3_helper\\\" \\> \\\"${CONFIGURATION_BUILD_DIR}/${WRAPPER_NAME}/Contents/Resources/moduleinfo.json\\\"\n\"${CONFIGURATION_BUILD_DIR}/juce_vst3_helper\" > \"${CONFIGURATION_BUILD_DIR}/${WRAPPER_NAME}/Contents/Resources/moduleinfo.json\"\n";
+		};
+		A22C91A9BE0C0A3B024E4AB6 /* Pre-build script */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			name = "Pre-build script";
+			alwaysOutOfDate = 1;
+			shellPath = /bin/sh;
+			shellScript = "sh \"${SRCROOT}/update_build_number.sh\"";
+		};
+		E63232E0FD797C2D9ECB5683 /* Pre-build script */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			name = "Pre-build script";
+			alwaysOutOfDate = 1;
+			shellPath = /bin/sh;
+			shellScript = "sh \"${SRCROOT}/update_build_number.sh\"";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -873,9 +933,9 @@
 					"JucePlugin_ProducesMidiOutput=0",
 					"JucePlugin_IsMidiEffect=0",
 					"JucePlugin_EditorRequiresKeyboardFocus=0",
-					"JucePlugin_Version=1.1.0",
-					"JucePlugin_VersionCode=0x10100",
-					"JucePlugin_VersionString=\\\"1.1.0\\\"",
+					"JucePlugin_Version=1.2.0",
+					"JucePlugin_VersionCode=0x10200",
+					"JucePlugin_VersionString=\\\"1.2.0\\\"",
 					"JucePlugin_VSTUniqueID=JucePlugin_PluginCode",
 					"JucePlugin_VSTCategory=kPlugCategEffect",
 					"JucePlugin_Vst3Category=\\\"Fx\\\"",
@@ -899,12 +959,12 @@
 					"JucePlugin_ARAContentTypes=0",
 					"JucePlugin_ARATransformationFlags=0",
 					"JucePlugin_ARAFactoryID=\\\"com.yourcompany.dissonanceMeeter.factory\\\"",
-					"JucePlugin_ARADocumentArchiveID=\\\"com.yourcompany.dissonanceMeeter.aradocumentarchive.1.0.2\\\"",
+					"JucePlugin_ARADocumentArchiveID=\\\"com.yourcompany.dissonanceMeeter.aradocumentarchive.1.2.0\\\"",
 					"JucePlugin_ARACompatibleArchiveIDs=\\\"\\\"",
 					"JUCE_STANDALONE_APPLICATION=JucePlugin_Build_Standalone",
 					"JUCER_XCODE_MAC_F6D2F4CF=1",
-					"JUCE_APP_VERSION=1.1.0",
-					"JUCE_APP_VERSION_HEX=0x10100",
+					"JUCE_APP_VERSION=1.2.0",
+					"JUCE_APP_VERSION_HEX=0x10200",
 				);
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GENERATE_PKGINFO_FILE = YES;
@@ -1043,9 +1103,9 @@
 					"JucePlugin_ProducesMidiOutput=0",
 					"JucePlugin_IsMidiEffect=0",
 					"JucePlugin_EditorRequiresKeyboardFocus=0",
-					"JucePlugin_Version=1.1.0",
-					"JucePlugin_VersionCode=0x10100",
-					"JucePlugin_VersionString=\\\"1.1.0\\\"",
+					"JucePlugin_Version=1.2.0",
+					"JucePlugin_VersionCode=0x10200",
+					"JucePlugin_VersionString=\\\"1.2.0\\\"",
 					"JucePlugin_VSTUniqueID=JucePlugin_PluginCode",
 					"JucePlugin_VSTCategory=kPlugCategEffect",
 					"JucePlugin_Vst3Category=\\\"Fx\\\"",
@@ -1069,12 +1129,12 @@
 					"JucePlugin_ARAContentTypes=0",
 					"JucePlugin_ARATransformationFlags=0",
 					"JucePlugin_ARAFactoryID=\\\"com.yourcompany.dissonanceMeeter.factory\\\"",
-					"JucePlugin_ARADocumentArchiveID=\\\"com.yourcompany.dissonanceMeeter.aradocumentarchive.1.0.2\\\"",
+					"JucePlugin_ARADocumentArchiveID=\\\"com.yourcompany.dissonanceMeeter.aradocumentarchive.1.2.0\\\"",
 					"JucePlugin_ARACompatibleArchiveIDs=\\\"\\\"",
 					"JUCE_STANDALONE_APPLICATION=JucePlugin_Build_Standalone",
 					"JUCER_XCODE_MAC_F6D2F4CF=1",
-					"JUCE_APP_VERSION=1.1.0",
-					"JUCE_APP_VERSION_HEX=0x10100",
+					"JUCE_APP_VERSION=1.2.0",
+					"JUCE_APP_VERSION_HEX=0x10200",
 					"JUCE_SHARED_CODE=1",
 				);
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
@@ -1161,9 +1221,9 @@
 					"JucePlugin_ProducesMidiOutput=0",
 					"JucePlugin_IsMidiEffect=0",
 					"JucePlugin_EditorRequiresKeyboardFocus=0",
-					"JucePlugin_Version=1.1.0",
-					"JucePlugin_VersionCode=0x10100",
-					"JucePlugin_VersionString=\\\"1.1.0\\\"",
+					"JucePlugin_Version=1.2.0",
+					"JucePlugin_VersionCode=0x10200",
+					"JucePlugin_VersionString=\\\"1.2.0\\\"",
 					"JucePlugin_VSTUniqueID=JucePlugin_PluginCode",
 					"JucePlugin_VSTCategory=kPlugCategEffect",
 					"JucePlugin_Vst3Category=\\\"Fx\\\"",
@@ -1187,12 +1247,12 @@
 					"JucePlugin_ARAContentTypes=0",
 					"JucePlugin_ARATransformationFlags=0",
 					"JucePlugin_ARAFactoryID=\\\"com.yourcompany.dissonanceMeeter.factory\\\"",
-					"JucePlugin_ARADocumentArchiveID=\\\"com.yourcompany.dissonanceMeeter.aradocumentarchive.1.0.2\\\"",
+					"JucePlugin_ARADocumentArchiveID=\\\"com.yourcompany.dissonanceMeeter.aradocumentarchive.1.2.0\\\"",
 					"JucePlugin_ARACompatibleArchiveIDs=\\\"\\\"",
 					"JUCE_STANDALONE_APPLICATION=JucePlugin_Build_Standalone",
 					"JUCER_XCODE_MAC_F6D2F4CF=1",
-					"JUCE_APP_VERSION=1.1.0",
-					"JUCE_APP_VERSION_HEX=0x10100",
+					"JUCE_APP_VERSION=1.2.0",
+					"JUCE_APP_VERSION_HEX=0x10200",
 				);
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				HEADER_SEARCH_PATHS = (
@@ -1271,9 +1331,9 @@
 					"JucePlugin_ProducesMidiOutput=0",
 					"JucePlugin_IsMidiEffect=0",
 					"JucePlugin_EditorRequiresKeyboardFocus=0",
-					"JucePlugin_Version=1.1.0",
-					"JucePlugin_VersionCode=0x10100",
-					"JucePlugin_VersionString=\\\"1.1.0\\\"",
+					"JucePlugin_Version=1.2.0",
+					"JucePlugin_VersionCode=0x10200",
+					"JucePlugin_VersionString=\\\"1.2.0\\\"",
 					"JucePlugin_VSTUniqueID=JucePlugin_PluginCode",
 					"JucePlugin_VSTCategory=kPlugCategEffect",
 					"JucePlugin_Vst3Category=\\\"Fx\\\"",
@@ -1297,12 +1357,12 @@
 					"JucePlugin_ARAContentTypes=0",
 					"JucePlugin_ARATransformationFlags=0",
 					"JucePlugin_ARAFactoryID=\\\"com.yourcompany.dissonanceMeeter.factory\\\"",
-					"JucePlugin_ARADocumentArchiveID=\\\"com.yourcompany.dissonanceMeeter.aradocumentarchive.1.0.2\\\"",
+					"JucePlugin_ARADocumentArchiveID=\\\"com.yourcompany.dissonanceMeeter.aradocumentarchive.1.2.0\\\"",
 					"JucePlugin_ARACompatibleArchiveIDs=\\\"\\\"",
 					"JUCE_STANDALONE_APPLICATION=JucePlugin_Build_Standalone",
 					"JUCER_XCODE_MAC_F6D2F4CF=1",
-					"JUCE_APP_VERSION=1.1.0",
-					"JUCE_APP_VERSION_HEX=0x10100",
+					"JUCE_APP_VERSION=1.2.0",
+					"JUCE_APP_VERSION_HEX=0x10200",
 				);
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				HEADER_SEARCH_PATHS = (
@@ -1379,9 +1439,9 @@
 					"JucePlugin_ProducesMidiOutput=0",
 					"JucePlugin_IsMidiEffect=0",
 					"JucePlugin_EditorRequiresKeyboardFocus=0",
-					"JucePlugin_Version=1.1.0",
-					"JucePlugin_VersionCode=0x10100",
-					"JucePlugin_VersionString=\\\"1.1.0\\\"",
+					"JucePlugin_Version=1.2.0",
+					"JucePlugin_VersionCode=0x10200",
+					"JucePlugin_VersionString=\\\"1.2.0\\\"",
 					"JucePlugin_VSTUniqueID=JucePlugin_PluginCode",
 					"JucePlugin_VSTCategory=kPlugCategEffect",
 					"JucePlugin_Vst3Category=\\\"Fx\\\"",
@@ -1405,12 +1465,12 @@
 					"JucePlugin_ARAContentTypes=0",
 					"JucePlugin_ARATransformationFlags=0",
 					"JucePlugin_ARAFactoryID=\\\"com.yourcompany.dissonanceMeeter.factory\\\"",
-					"JucePlugin_ARADocumentArchiveID=\\\"com.yourcompany.dissonanceMeeter.aradocumentarchive.1.0.2\\\"",
+					"JucePlugin_ARADocumentArchiveID=\\\"com.yourcompany.dissonanceMeeter.aradocumentarchive.1.2.0\\\"",
 					"JucePlugin_ARACompatibleArchiveIDs=\\\"\\\"",
 					"JUCE_STANDALONE_APPLICATION=JucePlugin_Build_Standalone",
 					"JUCER_XCODE_MAC_F6D2F4CF=1",
-					"JUCE_APP_VERSION=1.1.0",
-					"JUCE_APP_VERSION_HEX=0x10100",
+					"JUCE_APP_VERSION=1.2.0",
+					"JUCE_APP_VERSION_HEX=0x10200",
 				);
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				HEADER_SEARCH_PATHS = (
@@ -1488,9 +1548,9 @@
 					"JucePlugin_ProducesMidiOutput=0",
 					"JucePlugin_IsMidiEffect=0",
 					"JucePlugin_EditorRequiresKeyboardFocus=0",
-					"JucePlugin_Version=1.1.0",
-					"JucePlugin_VersionCode=0x10100",
-					"JucePlugin_VersionString=\\\"1.1.0\\\"",
+					"JucePlugin_Version=1.2.0",
+					"JucePlugin_VersionCode=0x10200",
+					"JucePlugin_VersionString=\\\"1.2.0\\\"",
 					"JucePlugin_VSTUniqueID=JucePlugin_PluginCode",
 					"JucePlugin_VSTCategory=kPlugCategEffect",
 					"JucePlugin_Vst3Category=\\\"Fx\\\"",
@@ -1514,12 +1574,12 @@
 					"JucePlugin_ARAContentTypes=0",
 					"JucePlugin_ARATransformationFlags=0",
 					"JucePlugin_ARAFactoryID=\\\"com.yourcompany.dissonanceMeeter.factory\\\"",
-					"JucePlugin_ARADocumentArchiveID=\\\"com.yourcompany.dissonanceMeeter.aradocumentarchive.1.0.2\\\"",
+					"JucePlugin_ARADocumentArchiveID=\\\"com.yourcompany.dissonanceMeeter.aradocumentarchive.1.2.0\\\"",
 					"JucePlugin_ARACompatibleArchiveIDs=\\\"\\\"",
 					"JUCE_STANDALONE_APPLICATION=JucePlugin_Build_Standalone",
 					"JUCER_XCODE_MAC_F6D2F4CF=1",
-					"JUCE_APP_VERSION=1.1.0",
-					"JUCE_APP_VERSION_HEX=0x10100",
+					"JUCE_APP_VERSION=1.2.0",
+					"JUCE_APP_VERSION_HEX=0x10200",
 				);
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GENERATE_PKGINFO_FILE = YES;
@@ -1602,9 +1662,9 @@
 					"JucePlugin_ProducesMidiOutput=0",
 					"JucePlugin_IsMidiEffect=0",
 					"JucePlugin_EditorRequiresKeyboardFocus=0",
-					"JucePlugin_Version=1.1.0",
-					"JucePlugin_VersionCode=0x10100",
-					"JucePlugin_VersionString=\\\"1.1.0\\\"",
+					"JucePlugin_Version=1.2.0",
+					"JucePlugin_VersionCode=0x10200",
+					"JucePlugin_VersionString=\\\"1.2.0\\\"",
 					"JucePlugin_VSTUniqueID=JucePlugin_PluginCode",
 					"JucePlugin_VSTCategory=kPlugCategEffect",
 					"JucePlugin_Vst3Category=\\\"Fx\\\"",
@@ -1628,12 +1688,12 @@
 					"JucePlugin_ARAContentTypes=0",
 					"JucePlugin_ARATransformationFlags=0",
 					"JucePlugin_ARAFactoryID=\\\"com.yourcompany.dissonanceMeeter.factory\\\"",
-					"JucePlugin_ARADocumentArchiveID=\\\"com.yourcompany.dissonanceMeeter.aradocumentarchive.1.0.2\\\"",
+					"JucePlugin_ARADocumentArchiveID=\\\"com.yourcompany.dissonanceMeeter.aradocumentarchive.1.2.0\\\"",
 					"JucePlugin_ARACompatibleArchiveIDs=\\\"\\\"",
 					"JUCE_STANDALONE_APPLICATION=JucePlugin_Build_Standalone",
 					"JUCER_XCODE_MAC_F6D2F4CF=1",
-					"JUCE_APP_VERSION=1.1.0",
-					"JUCE_APP_VERSION_HEX=0x10100",
+					"JUCE_APP_VERSION=1.2.0",
+					"JUCE_APP_VERSION_HEX=0x10200",
 				);
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				HEADER_SEARCH_PATHS = (
@@ -1711,9 +1771,9 @@
 					"JucePlugin_ProducesMidiOutput=0",
 					"JucePlugin_IsMidiEffect=0",
 					"JucePlugin_EditorRequiresKeyboardFocus=0",
-					"JucePlugin_Version=1.1.0",
-					"JucePlugin_VersionCode=0x10100",
-					"JucePlugin_VersionString=\\\"1.1.0\\\"",
+					"JucePlugin_Version=1.2.0",
+					"JucePlugin_VersionCode=0x10200",
+					"JucePlugin_VersionString=\\\"1.2.0\\\"",
 					"JucePlugin_VSTUniqueID=JucePlugin_PluginCode",
 					"JucePlugin_VSTCategory=kPlugCategEffect",
 					"JucePlugin_Vst3Category=\\\"Fx\\\"",
@@ -1737,12 +1797,12 @@
 					"JucePlugin_ARAContentTypes=0",
 					"JucePlugin_ARATransformationFlags=0",
 					"JucePlugin_ARAFactoryID=\\\"com.yourcompany.dissonanceMeeter.factory\\\"",
-					"JucePlugin_ARADocumentArchiveID=\\\"com.yourcompany.dissonanceMeeter.aradocumentarchive.1.0.2\\\"",
+					"JucePlugin_ARADocumentArchiveID=\\\"com.yourcompany.dissonanceMeeter.aradocumentarchive.1.2.0\\\"",
 					"JucePlugin_ARACompatibleArchiveIDs=\\\"\\\"",
 					"JUCE_STANDALONE_APPLICATION=JucePlugin_Build_Standalone",
 					"JUCER_XCODE_MAC_F6D2F4CF=1",
-					"JUCE_APP_VERSION=1.1.0",
-					"JUCE_APP_VERSION_HEX=0x10100",
+					"JUCE_APP_VERSION=1.2.0",
+					"JUCE_APP_VERSION_HEX=0x10200",
 				);
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GENERATE_PKGINFO_FILE = YES;
@@ -1874,9 +1934,9 @@
 					"JucePlugin_ProducesMidiOutput=0",
 					"JucePlugin_IsMidiEffect=0",
 					"JucePlugin_EditorRequiresKeyboardFocus=0",
-					"JucePlugin_Version=1.1.0",
-					"JucePlugin_VersionCode=0x10100",
-					"JucePlugin_VersionString=\\\"1.1.0\\\"",
+					"JucePlugin_Version=1.2.0",
+					"JucePlugin_VersionCode=0x10200",
+					"JucePlugin_VersionString=\\\"1.2.0\\\"",
 					"JucePlugin_VSTUniqueID=JucePlugin_PluginCode",
 					"JucePlugin_VSTCategory=kPlugCategEffect",
 					"JucePlugin_Vst3Category=\\\"Fx\\\"",
@@ -1900,12 +1960,12 @@
 					"JucePlugin_ARAContentTypes=0",
 					"JucePlugin_ARATransformationFlags=0",
 					"JucePlugin_ARAFactoryID=\\\"com.yourcompany.dissonanceMeeter.factory\\\"",
-					"JucePlugin_ARADocumentArchiveID=\\\"com.yourcompany.dissonanceMeeter.aradocumentarchive.1.0.2\\\"",
+					"JucePlugin_ARADocumentArchiveID=\\\"com.yourcompany.dissonanceMeeter.aradocumentarchive.1.2.0\\\"",
 					"JucePlugin_ARACompatibleArchiveIDs=\\\"\\\"",
 					"JUCE_STANDALONE_APPLICATION=JucePlugin_Build_Standalone",
 					"JUCER_XCODE_MAC_F6D2F4CF=1",
-					"JUCE_APP_VERSION=1.1.0",
-					"JUCE_APP_VERSION_HEX=0x10100",
+					"JUCE_APP_VERSION=1.2.0",
+					"JUCE_APP_VERSION_HEX=0x10200",
 					"JUCE_SHARED_CODE=1",
 				);
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
@@ -1983,9 +2043,9 @@
 					"JucePlugin_ProducesMidiOutput=0",
 					"JucePlugin_IsMidiEffect=0",
 					"JucePlugin_EditorRequiresKeyboardFocus=0",
-					"JucePlugin_Version=1.1.0",
-					"JucePlugin_VersionCode=0x10100",
-					"JucePlugin_VersionString=\\\"1.1.0\\\"",
+					"JucePlugin_Version=1.2.0",
+					"JucePlugin_VersionCode=0x10200",
+					"JucePlugin_VersionString=\\\"1.2.0\\\"",
 					"JucePlugin_VSTUniqueID=JucePlugin_PluginCode",
 					"JucePlugin_VSTCategory=kPlugCategEffect",
 					"JucePlugin_Vst3Category=\\\"Fx\\\"",
@@ -2009,12 +2069,12 @@
 					"JucePlugin_ARAContentTypes=0",
 					"JucePlugin_ARATransformationFlags=0",
 					"JucePlugin_ARAFactoryID=\\\"com.yourcompany.dissonanceMeeter.factory\\\"",
-					"JucePlugin_ARADocumentArchiveID=\\\"com.yourcompany.dissonanceMeeter.aradocumentarchive.1.0.2\\\"",
+					"JucePlugin_ARADocumentArchiveID=\\\"com.yourcompany.dissonanceMeeter.aradocumentarchive.1.2.0\\\"",
 					"JucePlugin_ARACompatibleArchiveIDs=\\\"\\\"",
 					"JUCE_STANDALONE_APPLICATION=JucePlugin_Build_Standalone",
 					"JUCER_XCODE_MAC_F6D2F4CF=1",
-					"JUCE_APP_VERSION=1.1.0",
-					"JUCE_APP_VERSION_HEX=0x10100",
+					"JUCE_APP_VERSION=1.2.0",
+					"JUCE_APP_VERSION_HEX=0x10200",
 				);
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GENERATE_PKGINFO_FILE = YES;
