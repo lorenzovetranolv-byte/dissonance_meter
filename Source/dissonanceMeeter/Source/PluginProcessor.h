@@ -226,10 +226,16 @@ public:
 			for (int ch = 0; ch < numChannels; ++ch)
 			{
 				float* data = buffer.getWritePointer(ch);
-				const float input = data[i]; // clean signal (forcing term)
+				const float rawInput = data[i];
+				// Full-wave rectification: driving the ODE with |f(t)| makes the
+				// forcing term contain the beat frequency |f1-f2| as a direct
+				// component (from |sin(2πf1t)+sin(2πf2t)|). The ODE resonates
+				// when |f1-f2| ≈ ω, so it responds more to dissonant intervals
+				// (slow beats, small |f1-f2|) than consonant ones (fast beats).
+				const float input = std::abs(rawInput);
 
 				// ── ODE numerical integration (Explicit Euler) ──────────────
-				// x''(t-1) = f(t) - damping·x'(t-1) - stiffness·x(t-1) - A·x²(t-1)
+				// x''(t-1) = |f(t)| - damping·x'(t-1) - stiffness·x(t-1) - A·x²(t-1)
 				const float xPrev    = x[ch];
 				const float xDotPrev = xDot[ch];
 				const float xDotDot = input
@@ -253,9 +259,8 @@ public:
 				// Amplify ODE output to match input level at low freq
 				const float odeOut = x[ch] * gainComp;
 
-				// A=0 → 100% input (bypass)
-				// A>0 → blend input + ODE distorted signal
-				data[i] = input * (1.0f - wet) + odeOut * wet;
+				// Dry mix uses original audio (not rectified); wet adds ODE response.
+				data[i] = rawInput * (1.0f - wet) + odeOut * wet;
 			}
 		}
 	}

@@ -135,4 +135,7 @@ resources.res
 # Auto-incrementing build number header (regenerated on each build) ---------------
 Source/dissonanceMeeter/Source/BuildNumber.h
 
+# Claude Code instructions (local only, not for VCS) ----
+CLAUDE.md
+
 # End of file
